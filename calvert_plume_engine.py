@@ -903,61 +903,87 @@ class CalvertCityPlumeEngine:
 
             print(f"Processing EPA monitor data for {pollutant} from {os.path.basename(csv_path)}...")
             try:
-                # Memory-safe chunking
-                chunk_iterator = pd.read_csv(csv_path, chunksize=150000, low_memory=False)
-
-                for chunk in chunk_iterator:
-                    # Dynamic Unit Extraction from the first valid chunk
-                    if unit is None and not chunk.empty:
-                        # Find first non-null value in 'Units of Measure'
-                        if 'Units of Measure' in chunk.columns:
-                            valid_units = chunk['Units of Measure'].dropna()
-                            if not valid_units.empty:
-                                unit = str(valid_units.iloc[0]).strip()
-
-                    # Strict Slicing & County Filtering
-                    # Filter by Date Local, State Name, County Name
-                    if all(col in chunk.columns for col in ['Date Local', 'State Name', 'County Name']):
-                        mask = (
-                            (chunk['Date Local'] == self.date_str) &
-                            (chunk['State Name'] == TARGET_STATE) &
-                            (chunk['County Name'].isin(TARGET_COUNTIES))
-                        )
-                        filtered_chunk = chunk[mask]
-                    else:
+                # Optimized line-by-line reading with pre-filtering
+                with open(csv_path, "r", encoding="utf-8") as f:
+                    header_line = f.readline()
+                    if not header_line:
                         continue
-
-                    if filtered_chunk.empty:
+                    
+                    # Parse header to find column indices
+                    reader = csv.reader([header_line])
+                    headers = next(reader)
+                    
+                    try:
+                        idx_state_name = headers.index('State Name')
+                        idx_county_name = headers.index('County Name')
+                        idx_date_local = headers.index('Date Local')
+                        idx_units = headers.index('Units of Measure')
+                        idx_state_code = headers.index('State Code')
+                        idx_county_code = headers.index('County Code')
+                        idx_site_num = headers.index('Site Num')
+                        idx_lat = headers.index('Latitude')
+                        idx_lon = headers.index('Longitude')
+                        idx_param_name = headers.index('Parameter Name')
+                        idx_time_local = headers.index('Time Local')
+                        idx_sample_meas = headers.index('Sample Measurement')
+                    except ValueError as ve:
+                        print(f"Warning: Missing required columns in {csv_path}: {ve}. Skipping.")
                         continue
-
-                    # Process rows
-                    for _, row in filtered_chunk.iterrows():
-                        state_code = str(row['State Code']).strip().zfill(2)
-                        county_code = str(row['County Code']).strip().zfill(3)
-                        site_num = str(row['Site Num']).strip().zfill(4)
+                    
+                    target_counties_set = set(TARGET_COUNTIES)
+                    
+                    # Fast search loop to identify matching lines as raw strings
+                    matching_lines = []
+                    for line in f:
+                        if TARGET_STATE in line and self.date_str in line:
+                            matching_lines.append(line)
+                            
+                if matching_lines:
+                    reader = csv.reader(matching_lines)
+                    for row in reader:
+                        if len(row) <= max(idx_state_name, idx_county_name, idx_date_local):
+                            continue
+                        if row[idx_state_name] != TARGET_STATE:
+                            continue
+                        if row[idx_county_name] not in target_counties_set:
+                            continue
+                        if row[idx_date_local] != self.date_str:
+                            continue
+                            
+                        # Extract units dynamically from first matched row
+                        if unit is None:
+                            unit_val = row[idx_units].strip()
+                            if unit_val:
+                                unit = unit_val
+                                
+                        state_code = row[idx_state_code].strip().zfill(2)
+                        county_code = row[idx_county_code].strip().zfill(3)
+                        site_num = row[idx_site_num].strip().zfill(4)
                         station_id = f"{state_code}-{county_code}-{site_num}"
-
-                        lat = float(row['Latitude'])
-                        lon = float(row['Longitude'])
-                        county = str(row['County Name']).strip()
-                        param_name = str(row['Parameter Name']).strip()
-
-                        # Parse time local and measurement value
-                        time_str = str(row['Time Local']).strip()  # "HH:MM"
+                        
+                        lat = float(row[idx_lat])
+                        lon = float(row[idx_lon])
+                        county = row[idx_county_name].strip()
+                        param_name = row[idx_param_name].strip()
+                        
+                        time_str = row[idx_time_local].strip()
                         try:
                             hour = int(time_str.split(':')[0])
                         except Exception:
                             continue
-
+                            
                         if not (0 <= hour <= 23):
                             continue
-
-                        val = row['Sample Measurement']
-                        if pd.isna(val):
+                            
+                        val_str = row[idx_sample_meas]
+                        if not val_str or val_str.strip() == "":
                             val = None
                         else:
-                            val = float(val)
-
+                            try:
+                                val = float(val_str)
+                            except ValueError:
+                                val = None
+                                
                         if station_id not in stations_data:
                             stations_data[station_id] = {
                                 "county": county,
@@ -966,7 +992,7 @@ class CalvertCityPlumeEngine:
                                 "parameter_name": param_name,
                                 "hourly_values": [[] for _ in range(24)]
                             }
-
+                            
                         if val is not None:
                             stations_data[station_id]["hourly_values"][hour].append(val)
 
@@ -2472,8 +2498,10 @@ if __name__ == "__main__":
             
             # Step 1: NOAA HRRR retrieval (skip download and conversion if daily ARL file exists)
             grib_files = []
-            if os.path.exists(pipeline.met_file_path) and os.path.getsize(pipeline.met_file_path) > 0:
-                print(f"Existing ARL meteorology file found ({os.path.getsize(pipeline.met_file_path):,} bytes) for {d_str}. Skipping weather download and conversion.")
+            # Check if meteorology file exists and is complete (each hour is ~554MB, 24 hours is ~13.3GB)
+            # We enforce a minimum size of 10GB to ensure it is not a partial/incomplete compilation.
+            if os.path.exists(pipeline.met_file_path) and os.path.getsize(pipeline.met_file_path) >= 10 * 1024 * 1024 * 1024:
+                print(f"Existing complete ARL meteorology file found ({os.path.getsize(pipeline.met_file_path):,} bytes) for {d_str}. Skipping weather download and conversion.")
             else:
                 if args.skip_weather:
                     # Look for cached GRIB files matching this date
