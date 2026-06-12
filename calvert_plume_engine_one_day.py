@@ -3,7 +3,7 @@
 # ==============================================================================
 # --- MULTI-DATE BATCH PROCESSING CONTROLS ---
 START_DATE = "2025-03-08"  # YYYY-MM-DD format for batch week initialization
-END_DATE = "2025-03-14"    # Consecutive 7-day simulation window end date
+END_DATE = "2025-03-08"    # Consecutive 7-day simulation window end date
 WEATHER_CACHE_DIR = "~/hysplit/weather_cache"  # Persistent directory for NOAA HRRR grids
 WEATHER_BOX_RADIUS_KM = 50  # Bounding box size for local weather cropping
 
