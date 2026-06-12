@@ -11,7 +11,8 @@ TRI_CSV_PATH = "fac_release.csv"  # TRI Explorer release CSV (downloaded from EP
 # --- UNIVERSAL EPA AIR QUALITY MONITORING CONTROLS ---
 TARGET_STATE = "Kentucky"
 TARGET_COUNTIES = ["Marshall", "McCracken", "Livingston"]
-BASE_DATA_DIR = "/Users/nawrig04/Library/CloudStorage/GoogleDrive-wrightnicholas4@gmail.com/My Drive/Med school/SRSP Project/Plume Analysis/"
+import os
+BASE_DATA_DIR = os.path.dirname(os.path.abspath(__file__)) + "/"
 
 EPA_MONITOR_CONFIG = {
     "PM2.5": {"path": BASE_DATA_DIR + "hourly_88101_2025.csv", "good": 12.0, "mod": 35.4, "unhealthy": 55.4},
@@ -2460,7 +2461,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calvert City Plume Dispersion Simulation Pipeline")
     parser.add_argument(
         "--workspace",
-        default="/Users/nawrig04/Library/CloudStorage/GoogleDrive-wrightnicholas4@gmail.com/My Drive/Med school/SRSP Project/Plume Analysis",
+        default=os.path.dirname(os.path.abspath(__file__)),
         help="Workspace directory containing calculations and web assets"
     )
     parser.add_argument(
