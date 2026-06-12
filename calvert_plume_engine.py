@@ -816,9 +816,21 @@ class CalvertCityPlumeEngine:
         # relative to each run directory. Create a symlink in the workspace to the HYSPLIT bdyfiles.
         hysplit_bdyfiles = os.path.join(os.path.dirname(self.hysplit_exec_dir), "bdyfiles")
         workspace_bdyfiles = os.path.join(self.workspace_dir, "bdyfiles")
-        if os.path.isdir(hysplit_bdyfiles) and not os.path.exists(workspace_bdyfiles):
-            os.symlink(hysplit_bdyfiles, workspace_bdyfiles)
-            print(f"Linked boundary files: {workspace_bdyfiles} -> {hysplit_bdyfiles}")
+        if os.path.isdir(hysplit_bdyfiles):
+            if os.path.exists(workspace_bdyfiles) or os.path.islink(workspace_bdyfiles):
+                try:
+                    if os.path.islink(workspace_bdyfiles):
+                        os.unlink(workspace_bdyfiles)
+                    elif os.path.isdir(workspace_bdyfiles):
+                        pass
+                    else:
+                        os.remove(workspace_bdyfiles)
+                except Exception as e:
+                    print(f"Warning: Could not remove existing link {workspace_bdyfiles}: {e}")
+            
+            if not os.path.exists(workspace_bdyfiles) and not os.path.islink(workspace_bdyfiles):
+                os.symlink(hysplit_bdyfiles, workspace_bdyfiles)
+                print(f"Linked boundary files: {workspace_bdyfiles} -> {hysplit_bdyfiles}")
             
         all_facility_particles = {}
         
