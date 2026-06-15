@@ -78,6 +78,113 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
+        /* ── Collapsible Panel System ── */
+        .panel-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .panel-collapse-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+            border-radius: 6px;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            transition: all 0.2s ease;
+            outline: none;
+            flex-shrink: 0;
+        }
+
+        .panel-collapse-btn:hover {
+            background: rgba(255, 255, 255, 0.14);
+            border-color: rgba(255, 255, 255, 0.25);
+            color: #fff;
+            transform: scale(1.1);
+        }
+
+        .panel-body {
+            overflow: hidden;
+            transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                        opacity 0.25s ease,
+                        padding 0.3s ease;
+            max-height: 2000px;
+            opacity: 1;
+        }
+
+        .panel-body.collapsed {
+            max-height: 0;
+            opacity: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+
+        /* Floating restore pills — visible when parent panel is collapsed */
+        .panel-restore-pill {
+            position: absolute;
+            z-index: 1100;
+            display: none;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: var(--font-family);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            transition: all 0.25s ease;
+        }
+
+        .panel-restore-pill.visible {
+            display: flex;
+        }
+
+        .panel-restore-pill:hover {
+            transform: scale(1.06);
+        }
+
+        #restore-header {
+            top: 24px;
+            left: 24px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            color: #a5b4fc;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        #restore-header:hover {
+            background: rgba(30, 30, 38, 0.85);
+            box-shadow: 0 8px 28px rgba(59, 130, 246, 0.15);
+        }
+
+        #restore-legend {
+            top: 24px;
+            right: 24px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            color: #a5b4fc;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        #restore-legend:hover {
+            background: rgba(30, 30, 38, 0.85);
+            box-shadow: 0 8px 28px rgba(59, 130, 246, 0.15);
+        }
+
         /* Header Panel */
         .hud-header {
             position: absolute;
@@ -86,6 +193,10 @@
             z-index: 1100;
             padding: 20px 24px;
             width: 380px;
+        }
+
+        .hud-header.panel-hidden {
+            display: none;
         }
 
         .hud-header h1 {
@@ -267,6 +378,10 @@
             flex-direction: column;
         }
 
+        .hud-legend.panel-hidden {
+            display: none;
+        }
+
         .legend-title {
             font-family: var(--header-font);
             font-size: 15px;
@@ -418,6 +533,128 @@
             filter: invert(1);
             cursor: pointer;
         }
+
+        /* ── Simulation Sandbox Panel ── */
+        .sandbox-section {
+            margin-top: 14px;
+        }
+
+        .sandbox-toggle-btn {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.18);
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            color: #a5b4fc;
+            font-family: var(--font-family);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            transition: all 0.25s ease;
+        }
+
+        .sandbox-toggle-btn:hover {
+            background: rgba(59, 130, 246, 0.15);
+            border-color: rgba(59, 130, 246, 0.35);
+            box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
+        }
+
+        .sandbox-toggle-arrow {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 10px;
+        }
+
+        .sandbox-toggle-arrow.expanded {
+            transform: rotate(180deg);
+        }
+
+        .sandbox-body {
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+            padding: 12px;
+            background: rgba(10, 10, 14, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 10px;
+        }
+
+        .sandbox-body.open {
+            display: flex;
+        }
+
+        .sandbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .sandbox-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: 600;
+            letter-spacing: 0.04em;
+        }
+
+        .sandbox-val {
+            font-weight: 700;
+            color: #a5b4fc;
+            font-variant-numeric: tabular-nums;
+            min-width: 56px;
+            text-align: right;
+        }
+
+        .sandbox-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 5px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        .sandbox-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #818cf8, #6366f1);
+            cursor: pointer;
+            box-shadow: 0 0 6px rgba(99, 102, 241, 0.5);
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+
+        .sandbox-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.3);
+            box-shadow: 0 0 12px rgba(99, 102, 241, 0.7);
+        }
+
+        .sandbox-slider::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #818cf8, #6366f1);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 6px rgba(99, 102, 241, 0.5);
+        }
+
+        .sandbox-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.05);
+            margin: 2px 0;
+        }
     </style>
 </head>
 <body>
@@ -429,41 +666,122 @@
         <!-- Overhead Particle Rendering Canvas -->
         <canvas id="particle-canvas"></canvas>
         
+        <!-- Floating Restore Pills (visible when panels are collapsed) -->
+        <div class="panel-restore-pill" id="restore-header">
+            <span>☰</span><span>Controls</span>
+        </div>
+        <div class="panel-restore-pill" id="restore-legend">
+            <span>☰</span><span>Sources</span>
+        </div>
+
         <!-- HUD Header -->
-        <div class="hud-header glass-panel">
-            <h1>Calvert City Plume Analysis</h1>
-            <div class="subtitle">Multi-date batch chemical dispersion simulation using hourly NOAA HRRR boundary conditions.</div>
-            <div class="divider"></div>
-            <div class="meta-row">
-                <div style="display: flex; align-items: center; gap: 4px;">STATE: <span class="meta-val">KENTUCKY</span></div>
-                <div style="display: flex; align-items: center; gap: 4px;">WEATHER: <span class="meta-val">HRRR GRIB2</span></div>
+        <div class="hud-header glass-panel" id="hud-header-panel">
+            <div class="panel-topbar">
+                <h1 style="margin-bottom:0">Calvert City Plume Analysis</h1>
+                <button class="panel-collapse-btn" id="collapse-header" title="Minimize Panel">−</button>
             </div>
-            <div class="divider"></div>
-            <div style="margin-top: 12px;">
-                <label for="date-picker" style="font-size: 10px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px; letter-spacing: 0.05em;">SIMULATION DATE</label>
-                <input type="date" id="date-picker">
-            </div>
-            <div style="margin-top: 12px;">
-                <label for="pollutant-select" style="font-size: 10px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px; letter-spacing: 0.05em;">EPA AIR QUALITY PARAMETER</label>
-                <select id="pollutant-select">
-                    <!-- Javascript populated -->
-                </select>
-            </div>
-            <div style="margin-top: 12px;">
-                <label for="display-mode-select" style="font-size: 10px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px; letter-spacing: 0.05em;">PLUME DISPLAY MODE</label>
-                <select id="display-mode-select">
-                    <option value="combined" selected>Combined Total Air</option>
-                    <option value="stack">Stacks Only</option>
-                    <option value="fugitive">Fugitive Only</option>
-                </select>
+            <div class="panel-body" id="header-panel-body">
+                <div class="subtitle" style="margin-top:4px">Multi-date batch chemical dispersion simulation using hourly NOAA HRRR boundary conditions.</div>
+                <div class="divider"></div>
+                <div class="meta-row">
+                    <div style="display: flex; align-items: center; gap: 4px;">STATE: <span class="meta-val">KENTUCKY</span></div>
+                    <div style="display: flex; align-items: center; gap: 4px;">WEATHER: <span class="meta-val">HRRR GRIB2</span></div>
+                </div>
+                <div class="divider"></div>
+                <div style="margin-top: 12px;">
+                    <label for="date-picker" style="font-size: 10px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px; letter-spacing: 0.05em;">SIMULATION DATE</label>
+                    <input type="date" id="date-picker">
+                </div>
+                <div style="margin-top: 12px;">
+                    <label for="pollutant-select" style="font-size: 10px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px; letter-spacing: 0.05em;">EPA AIR QUALITY PARAMETER</label>
+                    <select id="pollutant-select">
+                        <!-- Javascript populated -->
+                    </select>
+                </div>
+                <div style="margin-top: 12px;">
+                    <label for="display-mode-select" style="font-size: 10px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px; letter-spacing: 0.05em;">PLUME DISPLAY MODE</label>
+                    <select id="display-mode-select">
+                        <option value="combined" selected>Combined Total Air</option>
+                        <option value="stack">Stacks Only</option>
+                        <option value="fugitive">Fugitive Only</option>
+                    </select>
+                </div>
+
+                <!-- ══ Simulation Sandbox Control Panel ══ -->
+                <div class="sandbox-section">
+                    <button class="sandbox-toggle-btn" id="sandbox-toggle" type="button">
+                        <span>⚙ Simulation Sandbox</span>
+                        <span class="sandbox-toggle-arrow" id="sandbox-arrow">▼</span>
+                    </button>
+                    <div class="sandbox-body" id="sandbox-body">
+
+                        <!-- Plume Density Multiplier -->
+                        <div class="sandbox-group">
+                            <div class="sandbox-label">
+                                <span>PLUME DENSITY MULTIPLIER</span>
+                                <span class="sandbox-val" id="densityVal">1.0×</span>
+                            </div>
+                            <input type="range" class="sandbox-slider" id="densitySlider"
+                                   min="0.1" max="5.0" step="0.1" value="1.0">
+                        </div>
+
+                        <!-- Particle Lifespan -->
+                        <div class="sandbox-group">
+                            <div class="sandbox-label">
+                                <span>PARTICLE LIFESPAN</span>
+                                <span class="sandbox-val" id="lifespanVal">120 min</span>
+                            </div>
+                            <input type="range" class="sandbox-slider" id="lifespanSlider"
+                                   min="30" max="240" step="10" value="120">
+                        </div>
+
+                        <!-- Particle Size -->
+                        <div class="sandbox-group">
+                            <div class="sandbox-label">
+                                <span>PARTICLE SIZE</span>
+                                <span class="sandbox-val" id="sizeVal">2.5px</span>
+                            </div>
+                            <input type="range" class="sandbox-slider" id="sizeSlider"
+                                   min="1" max="10" step="0.5" value="2.5">
+                        </div>
+
+                        <div class="sandbox-divider"></div>
+
+                        <!-- Stack Particle Opacity -->
+                        <div class="sandbox-group">
+                            <div class="sandbox-label">
+                                <span>STACK PARTICLE OPACITY</span>
+                                <span class="sandbox-val" id="stackOpacityVal">0.70</span>
+                            </div>
+                            <input type="range" class="sandbox-slider" id="stackOpacitySlider"
+                                   min="0.05" max="1.0" step="0.05" value="0.70">
+                        </div>
+
+                        <!-- Fugitive Particle Opacity -->
+                        <div class="sandbox-group">
+                            <div class="sandbox-label">
+                                <span>FUGITIVE PARTICLE OPACITY</span>
+                                <span class="sandbox-val" id="fugitiveOpacityVal">0.70</span>
+                            </div>
+                            <input type="range" class="sandbox-slider" id="fugitiveOpacitySlider"
+                                   min="0.05" max="1.0" step="0.05" value="0.70">
+                        </div>
+
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Legend and Toggles -->
-        <div class="hud-legend glass-panel">
-            <div class="legend-title">Industrial Point Sources</div>
-            <div class="facility-list" id="facility-legend">
-                <!-- Javascript populated -->
+        <div class="hud-legend glass-panel" id="hud-legend-panel">
+            <div class="panel-topbar">
+                <div class="legend-title" style="margin-bottom:0">Industrial Point Sources</div>
+                <button class="panel-collapse-btn" id="collapse-legend" title="Minimize Panel">−</button>
+            </div>
+            <div class="panel-body" id="legend-panel-body">
+                <div class="facility-list" id="facility-legend">
+                    <!-- Javascript populated -->
+                </div>
             </div>
         </div>
 
@@ -83366,7 +83684,28 @@
         // CLIENT-SIDE CONTINUOUS PARTICLE SYSTEM
         // ================================================================
         
-        const MAX_PARTICLE_AGE = 120; // minutes
+        // Sandbox slider live-read helpers (replace hardcoded constants)
+        function getSandboxLifespan() {
+            const el = document.getElementById('lifespanSlider');
+            return el ? parseFloat(el.value) : 120;
+        }
+        function getSandboxSize() {
+            const el = document.getElementById('sizeSlider');
+            return el ? parseFloat(el.value) : 2.5;
+        }
+        function getSandboxDensity() {
+            const el = document.getElementById('densitySlider');
+            return el ? parseFloat(el.value) : 1.0;
+        }
+        function getSandboxStackOpacity() {
+            const el = document.getElementById('stackOpacitySlider');
+            return el ? parseFloat(el.value) : 0.70;
+        }
+        function getSandboxFugitiveOpacity() {
+            const el = document.getElementById('fugitiveOpacitySlider');
+            return el ? parseFloat(el.value) : 0.70;
+        }
+
         const MAX_ACTIVE = 4000;                // Global particle cap
         const SPAWN_INTERVAL = 1.0 / 30.0;     // Spawn every 2 sim-minutes
         const BASE_SPAWN_COUNT = 5;             // Particles per spawn for biggest emitter
@@ -83379,6 +83718,66 @@
         let particles = [];
         let lastSpawnTime = -999;
         let prevPlaybackTime = playbackTime;
+
+        // ── Sandbox UI wiring ──
+        (function initSandbox() {
+            const toggle = document.getElementById('sandbox-toggle');
+            const body = document.getElementById('sandbox-body');
+            const arrow = document.getElementById('sandbox-arrow');
+            toggle.addEventListener('click', () => {
+                const open = body.classList.toggle('open');
+                arrow.classList.toggle('expanded', open);
+            });
+
+            // Wire each slider to its value display
+            const wirings = [
+                { slider: 'densitySlider',         display: 'densityVal',         fmt: v => v.toFixed(1) + '×' },
+                { slider: 'lifespanSlider',        display: 'lifespanVal',        fmt: v => v.toFixed(0) + ' min' },
+                { slider: 'sizeSlider',            display: 'sizeVal',            fmt: v => v.toFixed(1) + 'px' },
+                { slider: 'stackOpacitySlider',    display: 'stackOpacityVal',    fmt: v => v.toFixed(2) },
+                { slider: 'fugitiveOpacitySlider', display: 'fugitiveOpacityVal', fmt: v => v.toFixed(2) }
+            ];
+            wirings.forEach(({ slider, display, fmt }) => {
+                const sl = document.getElementById(slider);
+                const dp = document.getElementById(display);
+                if (sl && dp) {
+                    sl.addEventListener('input', () => { dp.textContent = fmt(parseFloat(sl.value)); });
+                }
+            });
+        })();
+
+        // ── Collapsible Panel Toggle System ──
+        (function initPanelToggles() {
+            // Left Controls panel
+            const headerPanel = document.getElementById('hud-header-panel');
+            const headerBody = document.getElementById('header-panel-body');
+            const collapseHeader = document.getElementById('collapse-header');
+            const restoreHeader = document.getElementById('restore-header');
+
+            collapseHeader.addEventListener('click', () => {
+                headerPanel.classList.add('panel-hidden');
+                restoreHeader.classList.add('visible');
+            });
+            restoreHeader.addEventListener('click', () => {
+                headerPanel.classList.remove('panel-hidden');
+                restoreHeader.classList.remove('visible');
+            });
+
+            // Right Legend/Sources panel
+            const legendPanel = document.getElementById('hud-legend-panel');
+            const legendBody = document.getElementById('legend-panel-body');
+            const collapseLegend = document.getElementById('collapse-legend');
+            const restoreLegend = document.getElementById('restore-legend');
+
+            collapseLegend.addEventListener('click', () => {
+                legendPanel.classList.add('panel-hidden');
+                restoreLegend.classList.add('visible');
+            });
+            restoreLegend.addEventListener('click', () => {
+                legendPanel.classList.remove('panel-hidden');
+                restoreLegend.classList.remove('visible');
+            });
+        })();
         
         // ── Wind vector interpolation ──
         const gridInfo = PLUME_DATA.grid_info;
@@ -83437,10 +83836,12 @@
         }
         
         // ── Spawn particles at all active facilities ──
+        // Density slider multiplies the base spawn count in real-time.
         function spawnBatch() {
             if (particles.length >= MAX_ACTIVE) return;
             
             const displayMode = document.getElementById('display-mode-select').value;
+            const densityMult = getSandboxDensity();  // live density slider
             
             PLUME_DATA.facilities.forEach((fac, idx) => {
                 if (!activeFacilities[idx]) return;
@@ -83453,7 +83854,7 @@
                         const stackLbs = c.stack_lbs || 0;
                         if (stackLbs > 0) {
                             const ratio = stackLbs / maxFacLbs;
-                            const countFloat = ratio * BASE_SPAWN_COUNT * 1.5;
+                            const countFloat = ratio * BASE_SPAWN_COUNT * 1.5 * densityMult;
                             let count = Math.floor(countFloat);
                             if (Math.random() < (countFloat - count)) count += 1;
                             
@@ -83479,7 +83880,7 @@
                         const fugitiveLbs = c.fugitive_lbs || 0;
                         if (fugitiveLbs > 0) {
                             const ratio = fugitiveLbs / maxFacLbs;
-                            const countFloat = ratio * BASE_SPAWN_COUNT * 1.5;
+                            const countFloat = ratio * BASE_SPAWN_COUNT * 1.5 * densityMult;
                             let count = Math.floor(countFloat);
                             if (Math.random() < (countFloat - count)) count += 1;
                             
@@ -83504,12 +83905,14 @@
         }
         
         // ── Advect all particles forward by dtHours ──
+        // Lifespan slider is read live so lowering lifespan instantly prunes old particles.
         function advect(dtHours) {
             const displayMode = document.getElementById('display-mode-select').value;
+            const liveLifespan = getSandboxLifespan();  // dynamic lifespan from slider
             particles = particles.filter(p => {
                 const age = (playbackTime - p.birth) * 60;
                 const matchesMode = (displayMode === 'combined') || (displayMode === p.type);
-                return age >= 0 && age < MAX_PARTICLE_AGE && activeFacilities[p.fac] && activeChemicals[p.fac][p.chem] && matchesMode;
+                return age >= 0 && age < liveLifespan && activeFacilities[p.fac] && activeChemicals[p.fac][p.chem] && matchesMode;
             });
             
             for (let i = 0; i < particles.length; i++) {
@@ -83537,27 +83940,36 @@
         }
 
         // ── Draw all active particles ──
+        // Size, lifespan, and per-type opacity sliders are read every frame.
         function drawParticles() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             document.getElementById('active-count').textContent = particles.length;
             
             const bounds = map.getBounds();
+            const liveLifespan = getSandboxLifespan();
+            const liveSize = getSandboxSize();
+            const stackOpacity = getSandboxStackOpacity();
+            const fugitiveOpacity = getSandboxFugitiveOpacity();
             
             for (let i = 0; i < particles.length; i++) {
                 const p = particles[i];
                 const ageMin = (playbackTime - p.birth) * 60;
-                if (ageMin < 0 || ageMin >= MAX_PARTICLE_AGE) continue;
+                if (ageMin < 0 || ageMin >= liveLifespan) continue;
                 
                 const ll = L.latLng(p.lat, p.lon);
                 if (!bounds.contains(ll)) continue;
                 
                 const pt = map.latLngToContainerPoint(ll);
-                const opacity = Math.max(0, 1 - (ageMin / MAX_PARTICLE_AGE));
-                if (opacity <= 0.01) continue;
+                const ageFade = Math.max(0, 1 - (ageMin / liveLifespan));
+                if (ageFade <= 0.01) continue;
+
+                // Per-type opacity ceiling from sandbox sliders
+                const typeOpacityCap = (p.type === 'fugitive') ? fugitiveOpacity : stackOpacity;
+                const opacity = ageFade * typeOpacityCap;
                 
-                const baseR = 2.5;
+                const baseR = liveSize;  // dynamic from size slider
                 const hBonus = Math.min(1.2, p.ht / 250.0);
-                const radius = Math.min(5, (baseR + hBonus) * 1.0);
+                const radius = Math.min(liveSize * 2.5, (baseR + hBonus) * 1.0);
                 
                 const jx = (jHash(i, p.fac) - 0.5) * 2.5;
                 const jy = (jHash(i + 7919, p.fac) - 0.5) * 2.5;
@@ -83566,12 +83978,12 @@
                 
                 ctx.beginPath();
                 ctx.arc(px, py, radius, 0, 6.2832);
-                ctx.fillStyle = hexToRgbA(p.col, opacity * 0.7);
+                ctx.fillStyle = hexToRgbA(p.col, opacity);
                 ctx.fill();
                 
                 ctx.beginPath();
                 ctx.arc(px, py, radius * 2, 0, 6.2832);
-                ctx.fillStyle = hexToRgbA(p.col, opacity * 0.12);
+                ctx.fillStyle = hexToRgbA(p.col, opacity * 0.17);
                 ctx.fill();
             }
         }
