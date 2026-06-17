@@ -1637,6 +1637,13 @@ class CalvertCityPlumeEngine:
             display: none;
         }}
 
+        #legend-panel-body {{
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            flex: 1;
+        }}
+
         .legend-title {{
             font-family: var(--header-font);
             font-size: 15px;
@@ -1652,6 +1659,8 @@ class CalvertCityPlumeEngine:
             gap: 12px;
             overflow-y: auto;
             padding-right: 4px;
+            flex: 1;
+            min-height: 0;
         }}
 
         .facility-item {{
