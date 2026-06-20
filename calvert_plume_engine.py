@@ -52,97 +52,119 @@ MAX_PARTICLE_AGE_MINUTES = 120  # Lifespan of particle on canvas before complete
 BASE_PARTICLE_RADIUS_PIXELS = 2.5  # Drawing size of individual dots on the map canvas
 MAP_ZOOM_LEVEL = 12  # Default Leaflet initial zoom view setting
 
-# --- DYNAMIC PLUG-AND-PLAY FACILITIES MATRIX ---
+# # --- DYNAMIC PLUG-AND-PLAY FACILITIES MATRIX ---
 # To add a new facility, simply paste a new key-value block below matching the format.
 # csv_match_name: The prefix of the facility name as it appears in the TRI CSV export.
 # The entire pipeline will dynamically scale to accommodate new entries automatically.
+#
+# --- HOW TO CONFIGURE OPERATING HOURS SCHEDULES ---
+# By default, facilities operate "continuous" (24/7). If a facility operates on a 
+# limited shift/discontinuous basis, you can define a shift schedule like this:
+#
+#     "schedule": {
+#         "type": "shift",
+#         "start_hour": 8.0,  # 8:00 AM (24-hour decimal float)
+#         "end_hour": 17.0    # 5:00 PM (24-hour decimal float)
+#     }
+#
 FACILITIES = {
     "Westlake Vinyls": {
         "coords": (37.0345, -88.3512),
         "color": "#FF00FF",
         "tri_id": "42029WSTLK2468I",
         "csv_match_name": "WESTLAKE VINYLS INC",
-        "mock_fallback": {"stack_lbs": 206864, "fugitive_lbs": 0}
+        "mock_fallback": {"stack_lbs": 206864, "fugitive_lbs": 0},
+        "schedule": "continuous"
     },
     "Westlake PVC Plant": {
         "coords": (37.0430, -88.3410),
         "color": "#DA70D6",
         "tri_id": "42029PCFCWJOHNS",
         "csv_match_name": "WESTLAKE VINYLS INC. - PVC",
-        "mock_fallback": {"stack_lbs": 153757, "fugitive_lbs": 0}
+        "mock_fallback": {"stack_lbs": 153757, "fugitive_lbs": 0},
+        "schedule": "continuous"
     },
     "Arkema Inc": {
         "coords": (37.0548, -88.3670),
         "color": "#00FFFF",
         "tri_id": "42029PNNWLALTON",
         "csv_match_name": "ARKEMA",
-        "mock_fallback": {"stack_lbs": 125106, "fugitive_lbs": 0}
+        "mock_fallback": {"stack_lbs": 125106, "fugitive_lbs": 0},
+        "schedule": "continuous"
     },
     "CC Metals & Alloys": {
         "coords": (37.0540, -88.3510),
         "color": "#FF4444",
         "tri_id": "42029SKWLLHIGHW",
         "csv_match_name": "CC METALS",
-        "mock_fallback": {"stack_lbs": 58943, "fugitive_lbs": 0}
+        "mock_fallback": {"stack_lbs": 58943, "fugitive_lbs": 0},
+        "schedule": "continuous"
     },
     "Cymetech Corp": {
         "coords": (37.0330, -88.3350),
         "color": "#FF8C00",
         "tri_id": "42029CYMTC2468I",
         "csv_match_name": "CYMETECH",
-        "mock_fallback": {"stack_lbs": 41, "fugitive_lbs": 0}
+        "mock_fallback": {"stack_lbs": 41, "fugitive_lbs": 0},
+        "schedule": "continuous"
     },
     "Estron Chemicals": {
         "coords": (37.0420, -88.3500),
         "color": "#32CD32",
         "tri_id": "42029STRNCHIGHW",
         "csv_match_name": "ESTRON",
-        "mock_fallback": {"stack_lbs": 24131, "fugitive_lbs": 0}
+        "mock_fallback": {"stack_lbs": 24131, "fugitive_lbs": 0},
+        "schedule": "continuous"
     },
     "Evonik Corp": {
         "coords": (37.0380, -88.3520),
         "color": "#FF1493",
         "tri_id": "42029DGSSCRTE28",
         "csv_match_name": "EVONIK",
-        "mock_fallback": {"stack_lbs": 160390, "fugitive_lbs": 0}
+        "mock_fallback": {"stack_lbs": 160390, "fugitive_lbs": 0},
+        "schedule": "continuous"
     },
     "ISP Chemicals": {
         "coords": (37.0390, -88.3510),
         "color": "#00FF7F",
         "tri_id": "42029GFCHMHIGHW",
         "csv_match_name": "ISP CHEMICALS",
-        "mock_fallback": {"stack_lbs": 241986, "fugitive_lbs": 0}
+        "mock_fallback": {"stack_lbs": 241986, "fugitive_lbs": 0},
+        "schedule": "continuous"
     },
     "Lubrizol Advanced Materials": {
         "coords": (37.0350, -88.3340),
         "color": "#9370DB",
         "tri_id": "42029NVNNC2468I",
         "csv_match_name": "LUBRIZOL",
-        "mock_fallback": {"stack_lbs": 24386, "fugitive_lbs": 0}
+        "mock_fallback": {"stack_lbs": 24386, "fugitive_lbs": 0},
+        "schedule": "continuous"
     },
     "Sekisui Specialty Chemicals": {
         "coords": (37.0410, -88.3380),
         "color": "#FFD700",
         "tri_id": "42029CLNSL408NM",
         "csv_match_name": "SEKISUI",
-        "mock_fallback": {"stack_lbs": 720080, "fugitive_lbs": 0}
+        "mock_fallback": {"stack_lbs": 720080, "fugitive_lbs": 0},
+        "schedule": "continuous"
     },
     "Wacker Chemical": {
         "coords": (37.0440, -88.3480),
         "color": "#1E90FF",
         "tri_id": "4202WWCKRC412NR",
         "csv_match_name": "WACKER",
-        "mock_fallback": {"stack_lbs": 111346, "fugitive_lbs": 0}
+        "mock_fallback": {"stack_lbs": 111346, "fugitive_lbs": 0},
+        "schedule": "continuous"
     },
     "Carbide Industries": {
         "coords": (37.0522, -88.3414),
         "color": "#FFFF00",
         "tri_id": "42029THCRB3204I",
         "csv_match_name": "CARBIDE",
-        "mock_fallback": {"stack_lbs": 85000, "fugitive_lbs": 10000}
+        "mock_fallback": {"stack_lbs": 85000, "fugitive_lbs": 10000},
+        "schedule": "continuous"
     }
-    # ── To add a new facility, paste a new block above matching this format ──
-}
+}    # ── To add a new facility, paste a new block above matching this format ──
 
 TARGET_ZIP = "42029"
 MAP_CENTER = (37.0317, -88.3542)
@@ -264,7 +286,8 @@ class CalvertCityPlumeEngine:
                 "lon": lon,
                 "height": float(RELEASE_HEIGHT_METERS),
                 "color": details["color"],
-                "tri_id": details["tri_id"]
+                "tri_id": details["tri_id"],
+                "schedule": details.get("schedule", "continuous")
             })
             
         # Grid variables and directories
@@ -1070,6 +1093,95 @@ class CalvertCityPlumeEngine:
                     "stations": {}
                 }
 
+        # --- PARSE LOCAL CALVERT CITY DAILY VOC EXCEL DATA ---
+        excel_path = os.path.join(self.original_workspace_dir, "CalvertDailyVOCS_DateEnding6.30.2025.xlsx")
+        if os.path.exists(excel_path):
+            print(f"Processing local Calvert City VOC data from {os.path.basename(excel_path)}...")
+            try:
+                # Read the excel file
+                df_voc = pd.read_excel(excel_path)
+                df_voc['Date Local'] = pd.to_datetime(df_voc['Date Local'])
+                
+                # Find all unique dates in the Excel file
+                available_dates = df_voc['Date Local'].dropna().unique()
+                
+                if len(available_dates) > 0:
+                    target_date = pd.to_datetime(self.date_str)
+                    
+                    # Find the next available sample date on or after the target date,
+                    # since canisters accumulate air in the days leading up to the sample date.
+                    future_dates = [d for d in available_dates if pd.to_datetime(d) >= target_date]
+                    if future_dates:
+                        closest_date = min(future_dates)
+                    else:
+                        closest_date = max(available_dates) # Fallback to the latest available past date
+                        
+                    closest_date_str = pd.to_datetime(closest_date).strftime('%Y-%m-%d')
+                    days_diff = int(abs((pd.to_datetime(closest_date) - target_date).days))
+                    
+                    # Filter dataset for the closest date
+                    df_date = df_voc[df_voc['Date Local'] == closest_date]
+                    
+                    if not df_date.empty:
+                        # Make sure the "VOCs" parameter group exists and has proper units
+                        if "VOCs" in regional_monitor_data:
+                            if regional_monitor_data["VOCs"].get("unit") in (None, "N/A", "None", "None"):
+                                regional_monitor_data["VOCs"]["unit"] = "ppbC"
+                        else:
+                            regional_monitor_data["VOCs"] = {
+                                "unit": "ppbC",
+                                "good": 50.0,
+                                "mod": 150.0,
+                                "unhealthy": 300.0,
+                                "stations": {}
+                            }
+                        
+                        # Group by station to sum all compounds and extract detailed lists
+                        for (site_num, site_name), station_df in df_date.groupby(['Site Num', 'Local Site Name']):
+                            lat = float(station_df.iloc[0].get('Latitude', 0.0))
+                            lon = float(station_df.iloc[0].get('Longitude', 0.0))
+                            county = station_df.iloc[0].get('County Name', 'Marshall')
+                            
+                            # Sum all non-null daily average values to calculate Total VOCs
+                            mean_vals = station_df['Arithmetic Mean'].dropna()
+                            total_sum = float(mean_vals.sum()) if not mean_vals.empty else None
+                            
+                            # Replicate daily measurement across all 24 hours
+                            hourly_data = [total_sum] * 24 if total_sum is not None else [None] * 24
+                            
+                            # Gather sorted dictionary of individual chemical measurements
+                            voc_details = {}
+                            for _, row in station_df.iterrows():
+                                p_name = row.get('Parameter Name')
+                                m_val = row.get('Arithmetic Mean')
+                                if not pd.isna(m_val) and p_name:
+                                    voc_details[p_name] = float(m_val)
+                            
+                            # Sort chemical details descending by concentration
+                            sorted_vocs = sorted(voc_details.items(), key=lambda x: x[1] if x[1] is not None else 0.0, reverse=True)
+                            voc_details_dict = {k: v for k, v in sorted_vocs}
+                            
+                            station_id = f"CC_{int(site_num)} - {site_name}"
+                            regional_monitor_data["VOCs"]["stations"][station_id] = {
+                                "county": county,
+                                "lat": lat,
+                                "lon": lon,
+                                "parameter_name": "Total VOCs",
+                                "hourly_data": hourly_data,
+                                "voc_details": voc_details_dict,
+                                "sample_date": closest_date_str,
+                                "is_interpolated": days_diff > 0,
+                                "days_diff": days_diff
+                            }
+                        
+                        print(f"  Successfully loaded {df_date['Parameter Name'].nunique()} local VOC compounds from sample date {closest_date_str} for target date {self.date_str} (diff: {days_diff}d).")
+                    else:
+                        print(f"  No local VOC data found in Excel for closest date {closest_date_str}.")
+                else:
+                    print("  No dates found in Excel.")
+            except Exception as e:
+                print(f"Error parsing Calvert VOC Excel file: {e}")
+
         return regional_monitor_data
 
     def compile_data_for_json(self, raw_particles: Dict[str, Dict[int, List[Dict[str, Any]]]]) -> Dict[str, Any]:
@@ -1102,7 +1214,8 @@ class CalvertCityPlumeEngine:
                 "tri_id": fac["tri_id"],
                 "tri_name": tri_data.get("fac_name", fac["name"]),
                 "chemicals": releases,
-                "total_lbs": total_lbs
+                "total_lbs": total_lbs,
+                "schedule": fac.get("schedule", "continuous")
             })
             
         # Build internal timeline (used only for wind vector extraction, not serialized)
@@ -1312,12 +1425,39 @@ class CalvertCityPlumeEngine:
 
         #particle-canvas {{
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
             pointer-events: none;
-            z-index: 1000;
+        }}
+
+        /* Dark theme Leaflet Popups (removes white border and tip) */
+        .leaflet-popup-content-wrapper {{
+            background: #121214 !important;
+            color: #f3f4f6 !important;
+            padding: 0 !important;
+            border-radius: 12px !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6) !important;
+        }}
+
+        .leaflet-popup-content {{
+            margin: 0 !important;
+            padding: 0 !important;
+        }}
+
+        .leaflet-popup-tip {{
+            background: #121214 !important;
+            border-left: 1px solid rgba(255, 255, 255, 0.12) !important;
+            border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+            box-shadow: none !important;
+        }}
+
+        .leaflet-popup-close-button {{
+            color: #9ca3af !important;
+            padding: 8px 8px 0 0 !important;
+        }}
+
+        .leaflet-popup-close-button:hover {{
+            color: #fff !important;
+            background: transparent !important;
         }}
 
         /* Glassmorphic Panel Design System */
@@ -1768,6 +1908,21 @@ class CalvertCityPlumeEngine:
             font-size: 9px !important;
         }}
 
+        /* Custom Facility Marker DivIcon Overrides */
+        .custom-facility-divicon {{
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }}
+
+        /* Enable Text Selection inside Leaflet Popups */
+        .leaflet-popup-content, .leaflet-popup-content * {{
+            -webkit-user-select: text !important;
+            -moz-user-select: text !important;
+            -ms-user-select: text !important;
+            user-select: text !important;
+        }}
+
         #pollutant-select, #date-picker, #display-mode-select {{
             width: 100%;
             background: rgba(18, 18, 20, 0.6);
@@ -2140,6 +2295,19 @@ class CalvertCityPlumeEngine:
             position: 'bottomright'
         }}).addTo(map);
 
+        // Stop propagation of mousedown and touchstart inside Leaflet popups
+        // to prevent Leaflet from intercepting drag events and disabling selection.
+        document.addEventListener('mousedown', function(e) {{
+            if (e.target.closest('.leaflet-popup')) {{
+                e.stopPropagation();
+            }}
+        }}, true);
+        document.addEventListener('touchstart', function(e) {{
+            if (e.target.closest('.leaflet-popup')) {{
+                e.stopPropagation();
+            }}
+        }}, true);
+
         // --- EPA MONITORING LAYERS ---
         const activeMonitorLayer = L.layerGroup().addTo(map);
         const monitorMarkers = [];
@@ -2217,7 +2385,7 @@ class CalvertCityPlumeEngine:
         }}
 
         // Initialize with default pollutant
-        const defaultPollutant = Object.keys(regionalMonitorData)[0] || 'PM2.5';
+        const defaultPollutant = regionalMonitorData['VOCs'] ? 'VOCs' : (Object.keys(regionalMonitorData)[0] || 'PM2.5');
         pollutantSelect.value = defaultPollutant;
         syncActiveMonitorLayer(defaultPollutant);
 
@@ -2304,6 +2472,22 @@ class CalvertCityPlumeEngine:
 
                 const valStr = (val !== null && val !== undefined) ? (val.toFixed(2) + ' ' + m.unit) : 'No Data';
 
+                let sampleDateRow = '';
+                let measuredVocHeader = 'Measured VOC Compounds (' + m.unit + '):';
+                if (station.sample_date) {{
+                    const statusText = station.is_interpolated ? ` (${{station.days_diff}}d nearest)` : ' (Actual)';
+                    const colorStyle = station.is_interpolated ? 'color: #F59E0B;' : 'color: #10B981;';
+                    sampleDateRow = 
+                        '<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">' +
+                            '<td style="padding: 4px 0; color: #9ca3af;">Sample Date:</td>' +
+                            '<td style="padding: 4px 0; font-weight: 600; text-align: right; ' + colorStyle + '">' + station.sample_date + statusText + '</td>' +
+                        '</tr>';
+                    
+                    if (station.is_interpolated) {{
+                        measuredVocHeader = 'Measured VOC Compounds (' + m.unit + ' - Sampled ' + station.sample_date + '):';
+                    }}
+                }}
+
                 const popupContent = 
                     '<div style="font-family: Inter, sans-serif; font-size: 12px; color: #f3f4f6; width: 260px; background: #121214; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">' +
                         '<strong style="color: #a5b4fc; font-size: 14px; font-family: Outfit, sans-serif;">EPA Ambient Monitor</strong>' +
@@ -2325,6 +2509,7 @@ class CalvertCityPlumeEngine:
                                 '<td style="padding: 4px 0; color: #9ca3af;">Parameter:</td>' +
                                 '<td style="padding: 4px 0; font-weight: 600; text-align: right; color: #fff; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="' + station.parameter_name + '">' + station.parameter_name + '</td>' +
                             '</tr>' +
+                            sampleDateRow +
                             '<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">' +
                                 '<td style="padding: 4px 0; color: #9ca3af;">Active Hour:</td>' +
                                 '<td style="padding: 4px 0; font-weight: 600; text-align: right; color: #fff;">' + String(currentHourInt).padStart(2, '0') + ':00</td>' +
@@ -2333,11 +2518,25 @@ class CalvertCityPlumeEngine:
                                 '<td style="padding: 4px 0; color: #9ca3af;">Value:</td>' +
                                 '<td style="padding: 4px 0; font-weight: 600; text-align: right; color: #fff;">' + valStr + '</td>' +
                             '</tr>' +
-                            '<tr>' +
+                            '<tr' + (station.voc_details ? ' style="border-bottom: 1px solid rgba(255,255,255,0.05);"' : '') + '>' +
                                 '<td style="padding: 4px 0; color: #9ca3af;">Classification:</td>' +
                                 '<td style="padding: 4px 0; font-weight: 700; text-align: right; color: ' + color + ';">' + status + '</td>' +
                             '</tr>' +
                         '</table>' +
+                        (station.voc_details ? 
+                            ('<div style="margin-top: 8px; border-top: 1px dashed rgba(255,255,255,0.15); padding-top: 8px;">' +
+                                '<strong style="color: #a5b4fc; font-size: 11px; display: block; margin-bottom: 6px;">' + measuredVocHeader + '</strong>' +
+                                '<div style="max-height: 120px; overflow-y: auto; font-size: 10px; padding-right: 4px;">' +
+                                Object.keys(station.voc_details).map(compound => {{
+                                    const cVal = station.voc_details[compound];
+                                    const cValStr = cVal !== null ? cVal.toFixed(3) : 'N/A';
+                                    return '<div style="display: flex; justify-content: space-between; margin-bottom: 3px; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 1px;">' +
+                                               '<span style="color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px;" title="' + compound + '">' + compound + ':</span>' +
+                                               '<span style="font-weight: 600; color: #fff;">' + cValStr + '</span>' +
+                                           '</div>';
+                                }}).join('') +
+                                '</div>' +
+                            '</div>') : '') +
                     '</div>';
 
                 m.marker.setPopupContent(popupContent);
@@ -2358,10 +2557,18 @@ class CalvertCityPlumeEngine:
         const canvas = document.getElementById('particle-canvas');
         const ctx = canvas.getContext('2d');
         
+        // Move canvas inside leaflet's overlay pane so it sits behind popups (which are in popupPane)
+        map.getPanes().overlayPane.appendChild(canvas);
+        
         function resizeCanvas() {{
             const size = map.getSize();
             canvas.width = size.x;
             canvas.height = size.y;
+            
+            const topLeft = map.containerPointToLayerPoint([0, 0]);
+            canvas.style.position = 'absolute';
+            canvas.style.left = topLeft.x + 'px';
+            canvas.style.top = topLeft.y + 'px';
         }}
         resizeCanvas();
         
@@ -2463,13 +2670,14 @@ class CalvertCityPlumeEngine:
         }}
 
         PLUME_DATA.facilities.forEach(fac => {{
-            const marker = L.circleMarker([fac.lat, fac.lon], {{
-                radius: 8,
-                fillColor: fac.color,
-                color: '#fff',
-                weight: 2,
-                opacity: 0.9,
-                fillOpacity: 0.8
+            const squareIcon = L.divIcon({{
+                className: 'custom-facility-divicon',
+                html: `<div style="background-color: ${{fac.color}}; border: 1.5px solid #ffffff; width: 10px; height: 10px; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>`,
+                iconSize: [13, 13],
+                iconAnchor: [6.5, 6.5]
+            }});
+            const marker = L.marker([fac.lat, fac.lon], {{
+                icon: squareIcon
             }}).addTo(map);
             
             facilityMarkers[fac.id] = marker;
@@ -2789,6 +2997,16 @@ class CalvertCityPlumeEngine:
             PLUME_DATA.facilities.forEach((fac, idx) => {{
                 if (!activeFacilities[idx]) return;
                 
+                // Enforce operating hours schedule if configured
+                if (fac.schedule && fac.schedule !== 'continuous') {{
+                    const currentHour = playbackTime;
+                    if (fac.schedule.type === 'shift') {{
+                        if (currentHour < fac.schedule.start_hour || currentHour > fac.schedule.end_hour) {{
+                            return;
+                        }}
+                    }}
+                }}
+                
                 fac.chemicals.forEach(c => {{
                     if (!activeChemicals[idx] || !activeChemicals[idx][c.chemical]) return;
                     
@@ -2885,6 +3103,8 @@ class CalvertCityPlumeEngine:
         // ── Draw all active particles ──
         // Size, lifespan, and per-type opacity sliders are read every frame.
         function drawParticles() {{
+            resizeCanvas();
+            const topLeft = map.containerPointToLayerPoint([0, 0]);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             document.getElementById('active-count').textContent = particles.length;
             
@@ -2902,7 +3122,7 @@ class CalvertCityPlumeEngine:
                 const ll = L.latLng(p.lat, p.lon);
                 if (!bounds.contains(ll)) continue;
                 
-                const pt = map.latLngToContainerPoint(ll);
+                const pt = map.latLngToLayerPoint(ll);
                 const ageFade = Math.max(0, 1 - (ageMin / liveLifespan));
                 if (ageFade <= 0.01) continue;
 
@@ -2916,8 +3136,8 @@ class CalvertCityPlumeEngine:
                 
                 const jx = (jHash(i, p.fac) - 0.5) * 2.5;
                 const jy = (jHash(i + 7919, p.fac) - 0.5) * 2.5;
-                const px = pt.x + jx;
-                const py = pt.y + jy;
+                const px = pt.x - topLeft.x + jx;
+                const py = pt.y - topLeft.y + jy;
                 
                 ctx.beginPath();
                 ctx.arc(px, py, radius, 0, 6.2832);
@@ -3211,6 +3431,35 @@ if __name__ == "__main__":
                         master_archive = json.loads(json_str)
                         num_dates = len(master_archive)
                         print(f"Successfully extracted archive with {num_dates} date(s) of simulation data.")
+                        
+                        # Rebuild and inject updated facilities metadata (e.g. schedules, coords, colors)
+                        for date_key in master_archive:
+                            if "plumes" in master_archive[date_key]:
+                                plumes = master_archive[date_key]["plumes"]
+                                updated_facilities = []
+                                for fac in pipeline.facilities:
+                                    tri_data = pipeline.get_facility_releases(fac["name"])
+                                    releases = tri_data.get("releases", [])
+                                    total_lbs = sum(chem.get("total_lbs", 0.0) for chem in releases)
+                                    updated_facilities.append({
+                                        "id": fac["id"],
+                                        "name": fac["name"],
+                                        "lat": fac["lat"],
+                                        "lon": fac["lon"],
+                                        "height": fac["height"],
+                                        "color": fac["color"],
+                                        "tri_id": fac["tri_id"],
+                                        "tri_name": tri_data.get("fac_name", fac["name"]),
+                                        "chemicals": releases,
+                                        "total_lbs": total_lbs,
+                                        "schedule": fac.get("schedule", "continuous")
+                                    })
+                                plumes["facilities"] = updated_facilities
+                            
+                            # Also re-parse and update monitors data so we don't have to rerun HYSPLIT simulation
+                            print(f"Updating monitors data for date: {date_key}")
+                            pipeline.set_active_date(date_key)
+                            master_archive[date_key]["monitors"] = pipeline.process_ambient_monitors()
                     else:
                         print("Warning: Could not locate embedded JSON in existing HTML.")
                 except Exception as e:

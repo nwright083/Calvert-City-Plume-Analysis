@@ -57,12 +57,39 @@
 
         #particle-canvas {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
             pointer-events: none;
-            z-index: 1000;
+        }
+
+        /* Dark theme Leaflet Popups (removes white border and tip) */
+        .leaflet-popup-content-wrapper {
+            background: #121214 !important;
+            color: #f3f4f6 !important;
+            padding: 0 !important;
+            border-radius: 12px !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6) !important;
+        }
+
+        .leaflet-popup-content {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .leaflet-popup-tip {
+            background: #121214 !important;
+            border-left: 1px solid rgba(255, 255, 255, 0.12) !important;
+            border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+            box-shadow: none !important;
+        }
+
+        .leaflet-popup-close-button {
+            color: #9ca3af !important;
+            padding: 8px 8px 0 0 !important;
+        }
+
+        .leaflet-popup-close-button:hover {
+            color: #fff !important;
+            background: transparent !important;
         }
 
         /* Glassmorphic Panel Design System */
@@ -511,6 +538,21 @@
             background: rgba(0,0,0,0.85) !important;
             color: var(--text-muted) !important;
             font-size: 9px !important;
+        }
+
+        /* Custom Facility Marker DivIcon Overrides */
+        .custom-facility-divicon {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        /* Enable Text Selection inside Leaflet Popups */
+        .leaflet-popup-content, .leaflet-popup-content * {
+            -webkit-user-select: text !important;
+            -moz-user-select: text !important;
+            -ms-user-select: text !important;
+            user-select: text !important;
         }
 
         #pollutant-select, #date-picker, #display-mode-select {
@@ -1303,7 +1345,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 205610.54
+          "total_lbs": 205610.54,
+          "schedule": "continuous"
         },
         {
           "id": 1,
@@ -1361,7 +1404,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 153756.53
+          "total_lbs": 153756.53,
+          "schedule": "continuous"
         },
         {
           "id": 2,
@@ -1464,7 +1508,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 124582.6
+          "total_lbs": 124582.6,
+          "schedule": "continuous"
         },
         {
           "id": 3,
@@ -1567,7 +1612,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 58742.82
+          "total_lbs": 58742.82,
+          "schedule": "continuous"
         },
         {
           "id": 4,
@@ -1652,7 +1698,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 41.1
+          "total_lbs": 41.1,
+          "schedule": "continuous"
         },
         {
           "id": 5,
@@ -1719,7 +1766,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 24131.0
+          "total_lbs": 24131.0,
+          "schedule": "continuous"
         },
         {
           "id": 6,
@@ -1849,7 +1897,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 43031.0
+          "total_lbs": 43031.0,
+          "schedule": "continuous"
         },
         {
           "id": 7,
@@ -2006,7 +2055,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 177961.0
+          "total_lbs": 177961.0,
+          "schedule": "continuous"
         },
         {
           "id": 8,
@@ -2064,7 +2114,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 24385.95
+          "total_lbs": 24385.95,
+          "schedule": "continuous"
         },
         {
           "id": 9,
@@ -2104,7 +2155,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 720080.0
+          "total_lbs": 720080.0,
+          "schedule": "continuous"
         },
         {
           "id": 10,
@@ -2198,7 +2250,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 111345.64
+          "total_lbs": 111345.64,
+          "schedule": "continuous"
         },
         {
           "id": 11,
@@ -2220,7 +2273,8 @@
               "defaultActive": true
             }
           ],
-          "total_lbs": 95000.0
+          "total_lbs": 95000.0,
+          "schedule": "continuous"
         }
       ],
       "wind_grid": [
@@ -12403,11 +12457,286 @@
         }
       },
       "VOCs": {
-        "unit": "N/A",
+        "unit": "ppbC",
         "good": 50.0,
         "mod": 150.0,
         "unhealthy": 300.0,
-        "stations": {}
+        "stations": {
+          "CC_18 - Calvert City Elementary": {
+            "county": "Marshall",
+            "lat": 37.026757,
+            "lon": -88.343757,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998,
+              3.9699999999999998
+            ],
+            "voc_details": {
+              "Benzene": 0.6,
+              "Chloromethane": 0.5,
+              "Toluene": 0.5,
+              "Dichlorodifluoromethane": 0.49,
+              "Acrolein - Verified": 0.2,
+              "Dichloromethane": 0.2,
+              "Trichlorofluoromethane": 0.2,
+              "Ethylene dichloride": 0.2,
+              "Acetonitrile": 0.15,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.14,
+              "n-Octane": 0.1,
+              "Methyl isobutyl ketone": 0.1,
+              "Carbon tetrachloride": 0.1,
+              "Vinyl chloride": 0.1,
+              "m/p Xylene": 0.1,
+              "Ethylbenzene": 0.1,
+              "o-Xylene": 0.1,
+              "Freon 114": 0.04,
+              "Chloroethane": 0.02,
+              "1,2,4-Trichlorobenzene": 0.02,
+              "1,2-Dichlorobenzene": 0.01,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Acrylonitrile": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Tetrachloroethylene": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Hexachlorobutadiene": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Styrene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,3-Dichlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-08",
+            "is_interpolated": false,
+            "days_diff": 0
+          },
+          "CC_20 - Johnson-Riley Road": {
+            "county": "Marshall",
+            "lat": 37.041202,
+            "lon": -88.351879,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46,
+              7.46
+            ],
+            "voc_details": {
+              "Vinyl chloride": 2.1,
+              "Benzene": 0.9,
+              "Acetonitrile": 0.54,
+              "Chloromethane": 0.5,
+              "Dichlorodifluoromethane": 0.49,
+              "Methyl isobutyl ketone": 0.4,
+              "Ethylene dichloride": 0.4,
+              "Toluene": 0.4,
+              "Chloroethane": 0.31,
+              "Acrolein - Verified": 0.2,
+              "Dichloromethane": 0.2,
+              "Trichlorofluoromethane": 0.2,
+              "m/p Xylene": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.14,
+              "n-Octane": 0.1,
+              "Carbon tetrachloride": 0.1,
+              "Ethylbenzene": 0.1,
+              "o-Xylene": 0.1,
+              "Freon 114": 0.03,
+              "1,2,4-Trichlorobenzene": 0.03,
+              "1,2-Dichlorobenzene": 0.01,
+              "1,3-Dichlorobenzene": 0.01,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Tetrachloroethylene": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Hexachlorobutadiene": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Styrene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-08",
+            "is_interpolated": false,
+            "days_diff": 0
+          },
+          "CC_21 - LWD": {
+            "county": "Marshall",
+            "lat": 37.047914,
+            "lon": -88.338323,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998,
+              11.419999999999998
+            ],
+            "voc_details": {
+              "Ethylene dichloride": 5.7,
+              "Toluene": 1.2,
+              "Benzene": 0.8,
+              "Chloromethane": 0.5,
+              "Vinyl chloride": 0.5,
+              "Dichlorodifluoromethane": 0.48,
+              "Acrolein - Verified": 0.3,
+              "Dichloromethane": 0.3,
+              "Acetonitrile": 0.2,
+              "Trichlorofluoromethane": 0.2,
+              "m/p Xylene": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.14,
+              "1,3-Butadiene": 0.1,
+              "Methyl isobutyl ketone": 0.1,
+              "Chloroform": 0.1,
+              "Carbon tetrachloride": 0.1,
+              "1,1-Dichloroethane": 0.1,
+              "Ethylbenzene": 0.1,
+              "o-Xylene": 0.1,
+              "Styrene": 0.1,
+              "Chloroethane": 0.04,
+              "Freon 114": 0.03,
+              "1,2,4-Trichlorobenzene": 0.02,
+              "1,2-Dichlorobenzene": 0.01,
+              "Carbon disulfide": 0.0,
+              "n-Octane": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Bromoform": 0.0,
+              "Methyl chloroform": 0.0,
+              "Tetrachloroethylene": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Hexachlorobutadiene": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,3-Dichlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-08",
+            "is_interpolated": false,
+            "days_diff": 0
+          }
+        }
       },
       "Ozone": {
         "unit": "Parts per million",
@@ -13063,7 +13392,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 205610.54
+          "total_lbs": 205610.54,
+          "schedule": "continuous"
         },
         {
           "id": 1,
@@ -13121,7 +13451,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 153756.53
+          "total_lbs": 153756.53,
+          "schedule": "continuous"
         },
         {
           "id": 2,
@@ -13224,7 +13555,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 124582.6
+          "total_lbs": 124582.6,
+          "schedule": "continuous"
         },
         {
           "id": 3,
@@ -13327,7 +13659,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 58742.82
+          "total_lbs": 58742.82,
+          "schedule": "continuous"
         },
         {
           "id": 4,
@@ -13412,7 +13745,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 41.1
+          "total_lbs": 41.1,
+          "schedule": "continuous"
         },
         {
           "id": 5,
@@ -13479,7 +13813,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 24131.0
+          "total_lbs": 24131.0,
+          "schedule": "continuous"
         },
         {
           "id": 6,
@@ -13609,7 +13944,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 43031.0
+          "total_lbs": 43031.0,
+          "schedule": "continuous"
         },
         {
           "id": 7,
@@ -13766,7 +14102,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 177961.0
+          "total_lbs": 177961.0,
+          "schedule": "continuous"
         },
         {
           "id": 8,
@@ -13824,7 +14161,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 24385.95
+          "total_lbs": 24385.95,
+          "schedule": "continuous"
         },
         {
           "id": 9,
@@ -13864,7 +14202,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 720080.0
+          "total_lbs": 720080.0,
+          "schedule": "continuous"
         },
         {
           "id": 10,
@@ -13958,7 +14297,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 111345.64
+          "total_lbs": 111345.64,
+          "schedule": "continuous"
         },
         {
           "id": 11,
@@ -13980,7 +14320,8 @@
               "defaultActive": true
             }
           ],
-          "total_lbs": 95000.0
+          "total_lbs": 95000.0,
+          "schedule": "continuous"
         }
       ],
       "wind_grid": [
@@ -24163,11 +24504,286 @@
         }
       },
       "VOCs": {
-        "unit": "N/A",
+        "unit": "ppbC",
         "good": 50.0,
         "mod": 150.0,
         "unhealthy": 300.0,
-        "stations": {}
+        "stations": {
+          "CC_18 - Calvert City Elementary": {
+            "county": "Marshall",
+            "lat": 37.026757,
+            "lon": -88.343757,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999
+            ],
+            "voc_details": {
+              "Acetonitrile": 3.96,
+              "Chloromethane": 0.6,
+              "Toluene": 0.6,
+              "Benzene": 0.5,
+              "Dichlorodifluoromethane": 0.49,
+              "Acrolein - Verified": 0.4,
+              "Dichloromethane": 0.3,
+              "Trichlorofluoromethane": 0.2,
+              "m/p Xylene": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Methyl isobutyl ketone": 0.1,
+              "Carbon tetrachloride": 0.1,
+              "Ethylbenzene": 0.1,
+              "o-Xylene": 0.1,
+              "Styrene": 0.1,
+              "Freon 114": 0.04,
+              "Chloroethane": 0.01,
+              "1,2-Dichlorobenzene": 0.01,
+              "1,2,4-Trichlorobenzene": 0.01,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "n-Octane": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Acrylonitrile": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "Tetrachloroethylene": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Hexachlorobutadiene": 0.0,
+              "Vinyl chloride": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,3-Dichlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": true,
+            "days_diff": 5
+          },
+          "CC_20 - Johnson-Riley Road": {
+            "county": "Marshall",
+            "lat": 37.041202,
+            "lon": -88.351879,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91
+            ],
+            "voc_details": {
+              "Chloromethane": 0.6,
+              "Toluene": 0.6,
+              "Benzene": 0.5,
+              "Dichlorodifluoromethane": 0.49,
+              "Methyl isobutyl ketone": 0.4,
+              "Acetonitrile": 0.31,
+              "Acrolein - Verified": 0.3,
+              "Dichloromethane": 0.3,
+              "m/p Xylene": 0.3,
+              "n-Octane": 0.2,
+              "Trichlorofluoromethane": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Carbon tetrachloride": 0.1,
+              "Tetrachloroethylene": 0.1,
+              "Ethylbenzene": 0.1,
+              "o-Xylene": 0.1,
+              "Styrene": 0.1,
+              "Freon 114": 0.04,
+              "Chloroethane": 0.01,
+              "1,2,4-Trichlorobenzene": 0.01,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Hexachlorobutadiene": 0.0,
+              "Vinyl chloride": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,2-Dichlorobenzene": 0.0,
+              "1,3-Dichlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": true,
+            "days_diff": 5
+          },
+          "CC_21 - LWD": {
+            "county": "Marshall",
+            "lat": 37.047914,
+            "lon": -88.338323,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26
+            ],
+            "voc_details": {
+              "Acetonitrile": 0.66,
+              "Chloromethane": 0.6,
+              "Acrolein - Verified": 0.5,
+              "Dichlorodifluoromethane": 0.48,
+              "Benzene": 0.4,
+              "Toluene": 0.4,
+              "Methyl isobutyl ketone": 0.2,
+              "Dichloromethane": 0.2,
+              "Trichlorofluoromethane": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Carbon tetrachloride": 0.1,
+              "m/p Xylene": 0.1,
+              "1,2,4-Trichlorobenzene": 0.1,
+              "1,2-Dichlorobenzene": 0.05,
+              "Chloroethane": 0.04,
+              "Freon 114": 0.03,
+              "1,3-Dichlorobenzene": 0.03,
+              "Hexachlorobutadiene": 0.02,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "n-Octane": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "Tetrachloroethylene": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Vinyl chloride": 0.0,
+              "Ethylbenzene": 0.0,
+              "o-Xylene": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Styrene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": true,
+            "days_diff": 5
+          }
+        }
       },
       "Ozone": {
         "unit": "Parts per million",
@@ -24823,7 +25439,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 205610.54
+          "total_lbs": 205610.54,
+          "schedule": "continuous"
         },
         {
           "id": 1,
@@ -24881,7 +25498,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 153756.53
+          "total_lbs": 153756.53,
+          "schedule": "continuous"
         },
         {
           "id": 2,
@@ -24984,7 +25602,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 124582.6
+          "total_lbs": 124582.6,
+          "schedule": "continuous"
         },
         {
           "id": 3,
@@ -25087,7 +25706,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 58742.82
+          "total_lbs": 58742.82,
+          "schedule": "continuous"
         },
         {
           "id": 4,
@@ -25172,7 +25792,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 41.1
+          "total_lbs": 41.1,
+          "schedule": "continuous"
         },
         {
           "id": 5,
@@ -25239,7 +25860,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 24131.0
+          "total_lbs": 24131.0,
+          "schedule": "continuous"
         },
         {
           "id": 6,
@@ -25369,7 +25991,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 43031.0
+          "total_lbs": 43031.0,
+          "schedule": "continuous"
         },
         {
           "id": 7,
@@ -25526,7 +26149,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 177961.0
+          "total_lbs": 177961.0,
+          "schedule": "continuous"
         },
         {
           "id": 8,
@@ -25584,7 +26208,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 24385.95
+          "total_lbs": 24385.95,
+          "schedule": "continuous"
         },
         {
           "id": 9,
@@ -25624,7 +26249,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 720080.0
+          "total_lbs": 720080.0,
+          "schedule": "continuous"
         },
         {
           "id": 10,
@@ -25718,7 +26344,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 111345.64
+          "total_lbs": 111345.64,
+          "schedule": "continuous"
         },
         {
           "id": 11,
@@ -25740,7 +26367,8 @@
               "defaultActive": true
             }
           ],
-          "total_lbs": 95000.0
+          "total_lbs": 95000.0,
+          "schedule": "continuous"
         }
       ],
       "wind_grid": [
@@ -35923,11 +36551,286 @@
         }
       },
       "VOCs": {
-        "unit": "N/A",
+        "unit": "ppbC",
         "good": 50.0,
         "mod": 150.0,
         "unhealthy": 300.0,
-        "stations": {}
+        "stations": {
+          "CC_18 - Calvert City Elementary": {
+            "county": "Marshall",
+            "lat": 37.026757,
+            "lon": -88.343757,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999
+            ],
+            "voc_details": {
+              "Acetonitrile": 3.96,
+              "Chloromethane": 0.6,
+              "Toluene": 0.6,
+              "Benzene": 0.5,
+              "Dichlorodifluoromethane": 0.49,
+              "Acrolein - Verified": 0.4,
+              "Dichloromethane": 0.3,
+              "Trichlorofluoromethane": 0.2,
+              "m/p Xylene": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Methyl isobutyl ketone": 0.1,
+              "Carbon tetrachloride": 0.1,
+              "Ethylbenzene": 0.1,
+              "o-Xylene": 0.1,
+              "Styrene": 0.1,
+              "Freon 114": 0.04,
+              "Chloroethane": 0.01,
+              "1,2-Dichlorobenzene": 0.01,
+              "1,2,4-Trichlorobenzene": 0.01,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "n-Octane": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Acrylonitrile": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "Tetrachloroethylene": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Hexachlorobutadiene": 0.0,
+              "Vinyl chloride": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,3-Dichlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": true,
+            "days_diff": 4
+          },
+          "CC_20 - Johnson-Riley Road": {
+            "county": "Marshall",
+            "lat": 37.041202,
+            "lon": -88.351879,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91
+            ],
+            "voc_details": {
+              "Chloromethane": 0.6,
+              "Toluene": 0.6,
+              "Benzene": 0.5,
+              "Dichlorodifluoromethane": 0.49,
+              "Methyl isobutyl ketone": 0.4,
+              "Acetonitrile": 0.31,
+              "Acrolein - Verified": 0.3,
+              "Dichloromethane": 0.3,
+              "m/p Xylene": 0.3,
+              "n-Octane": 0.2,
+              "Trichlorofluoromethane": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Carbon tetrachloride": 0.1,
+              "Tetrachloroethylene": 0.1,
+              "Ethylbenzene": 0.1,
+              "o-Xylene": 0.1,
+              "Styrene": 0.1,
+              "Freon 114": 0.04,
+              "Chloroethane": 0.01,
+              "1,2,4-Trichlorobenzene": 0.01,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Hexachlorobutadiene": 0.0,
+              "Vinyl chloride": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,2-Dichlorobenzene": 0.0,
+              "1,3-Dichlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": true,
+            "days_diff": 4
+          },
+          "CC_21 - LWD": {
+            "county": "Marshall",
+            "lat": 37.047914,
+            "lon": -88.338323,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26
+            ],
+            "voc_details": {
+              "Acetonitrile": 0.66,
+              "Chloromethane": 0.6,
+              "Acrolein - Verified": 0.5,
+              "Dichlorodifluoromethane": 0.48,
+              "Benzene": 0.4,
+              "Toluene": 0.4,
+              "Methyl isobutyl ketone": 0.2,
+              "Dichloromethane": 0.2,
+              "Trichlorofluoromethane": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Carbon tetrachloride": 0.1,
+              "m/p Xylene": 0.1,
+              "1,2,4-Trichlorobenzene": 0.1,
+              "1,2-Dichlorobenzene": 0.05,
+              "Chloroethane": 0.04,
+              "Freon 114": 0.03,
+              "1,3-Dichlorobenzene": 0.03,
+              "Hexachlorobutadiene": 0.02,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "n-Octane": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "Tetrachloroethylene": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Vinyl chloride": 0.0,
+              "Ethylbenzene": 0.0,
+              "o-Xylene": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Styrene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": true,
+            "days_diff": 4
+          }
+        }
       },
       "Ozone": {
         "unit": "Parts per million",
@@ -36583,7 +37486,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 205610.54
+          "total_lbs": 205610.54,
+          "schedule": "continuous"
         },
         {
           "id": 1,
@@ -36641,7 +37545,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 153756.53
+          "total_lbs": 153756.53,
+          "schedule": "continuous"
         },
         {
           "id": 2,
@@ -36744,7 +37649,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 124582.6
+          "total_lbs": 124582.6,
+          "schedule": "continuous"
         },
         {
           "id": 3,
@@ -36847,7 +37753,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 58742.82
+          "total_lbs": 58742.82,
+          "schedule": "continuous"
         },
         {
           "id": 4,
@@ -36932,7 +37839,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 41.1
+          "total_lbs": 41.1,
+          "schedule": "continuous"
         },
         {
           "id": 5,
@@ -36999,7 +37907,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 24131.0
+          "total_lbs": 24131.0,
+          "schedule": "continuous"
         },
         {
           "id": 6,
@@ -37129,7 +38038,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 43031.0
+          "total_lbs": 43031.0,
+          "schedule": "continuous"
         },
         {
           "id": 7,
@@ -37286,7 +38196,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 177961.0
+          "total_lbs": 177961.0,
+          "schedule": "continuous"
         },
         {
           "id": 8,
@@ -37344,7 +38255,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 24385.95
+          "total_lbs": 24385.95,
+          "schedule": "continuous"
         },
         {
           "id": 9,
@@ -37384,7 +38296,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 720080.0
+          "total_lbs": 720080.0,
+          "schedule": "continuous"
         },
         {
           "id": 10,
@@ -37478,7 +38391,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 111345.64
+          "total_lbs": 111345.64,
+          "schedule": "continuous"
         },
         {
           "id": 11,
@@ -37500,7 +38414,8 @@
               "defaultActive": true
             }
           ],
-          "total_lbs": 95000.0
+          "total_lbs": 95000.0,
+          "schedule": "continuous"
         }
       ],
       "wind_grid": [
@@ -47683,11 +48598,286 @@
         }
       },
       "VOCs": {
-        "unit": "N/A",
+        "unit": "ppbC",
         "good": 50.0,
         "mod": 150.0,
         "unhealthy": 300.0,
-        "stations": {}
+        "stations": {
+          "CC_18 - Calvert City Elementary": {
+            "county": "Marshall",
+            "lat": 37.026757,
+            "lon": -88.343757,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999
+            ],
+            "voc_details": {
+              "Acetonitrile": 3.96,
+              "Chloromethane": 0.6,
+              "Toluene": 0.6,
+              "Benzene": 0.5,
+              "Dichlorodifluoromethane": 0.49,
+              "Acrolein - Verified": 0.4,
+              "Dichloromethane": 0.3,
+              "Trichlorofluoromethane": 0.2,
+              "m/p Xylene": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Methyl isobutyl ketone": 0.1,
+              "Carbon tetrachloride": 0.1,
+              "Ethylbenzene": 0.1,
+              "o-Xylene": 0.1,
+              "Styrene": 0.1,
+              "Freon 114": 0.04,
+              "Chloroethane": 0.01,
+              "1,2-Dichlorobenzene": 0.01,
+              "1,2,4-Trichlorobenzene": 0.01,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "n-Octane": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Acrylonitrile": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "Tetrachloroethylene": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Hexachlorobutadiene": 0.0,
+              "Vinyl chloride": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,3-Dichlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": true,
+            "days_diff": 3
+          },
+          "CC_20 - Johnson-Riley Road": {
+            "county": "Marshall",
+            "lat": 37.041202,
+            "lon": -88.351879,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91
+            ],
+            "voc_details": {
+              "Chloromethane": 0.6,
+              "Toluene": 0.6,
+              "Benzene": 0.5,
+              "Dichlorodifluoromethane": 0.49,
+              "Methyl isobutyl ketone": 0.4,
+              "Acetonitrile": 0.31,
+              "Acrolein - Verified": 0.3,
+              "Dichloromethane": 0.3,
+              "m/p Xylene": 0.3,
+              "n-Octane": 0.2,
+              "Trichlorofluoromethane": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Carbon tetrachloride": 0.1,
+              "Tetrachloroethylene": 0.1,
+              "Ethylbenzene": 0.1,
+              "o-Xylene": 0.1,
+              "Styrene": 0.1,
+              "Freon 114": 0.04,
+              "Chloroethane": 0.01,
+              "1,2,4-Trichlorobenzene": 0.01,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Hexachlorobutadiene": 0.0,
+              "Vinyl chloride": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,2-Dichlorobenzene": 0.0,
+              "1,3-Dichlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": true,
+            "days_diff": 3
+          },
+          "CC_21 - LWD": {
+            "county": "Marshall",
+            "lat": 37.047914,
+            "lon": -88.338323,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26
+            ],
+            "voc_details": {
+              "Acetonitrile": 0.66,
+              "Chloromethane": 0.6,
+              "Acrolein - Verified": 0.5,
+              "Dichlorodifluoromethane": 0.48,
+              "Benzene": 0.4,
+              "Toluene": 0.4,
+              "Methyl isobutyl ketone": 0.2,
+              "Dichloromethane": 0.2,
+              "Trichlorofluoromethane": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Carbon tetrachloride": 0.1,
+              "m/p Xylene": 0.1,
+              "1,2,4-Trichlorobenzene": 0.1,
+              "1,2-Dichlorobenzene": 0.05,
+              "Chloroethane": 0.04,
+              "Freon 114": 0.03,
+              "1,3-Dichlorobenzene": 0.03,
+              "Hexachlorobutadiene": 0.02,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "n-Octane": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "Tetrachloroethylene": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Vinyl chloride": 0.0,
+              "Ethylbenzene": 0.0,
+              "o-Xylene": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Styrene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": true,
+            "days_diff": 3
+          }
+        }
       },
       "Ozone": {
         "unit": "Parts per million",
@@ -48343,7 +49533,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 205610.54
+          "total_lbs": 205610.54,
+          "schedule": "continuous"
         },
         {
           "id": 1,
@@ -48401,7 +49592,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 153756.53
+          "total_lbs": 153756.53,
+          "schedule": "continuous"
         },
         {
           "id": 2,
@@ -48504,7 +49696,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 124582.6
+          "total_lbs": 124582.6,
+          "schedule": "continuous"
         },
         {
           "id": 3,
@@ -48607,7 +49800,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 58742.82
+          "total_lbs": 58742.82,
+          "schedule": "continuous"
         },
         {
           "id": 4,
@@ -48692,7 +49886,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 41.1
+          "total_lbs": 41.1,
+          "schedule": "continuous"
         },
         {
           "id": 5,
@@ -48759,7 +49954,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 24131.0
+          "total_lbs": 24131.0,
+          "schedule": "continuous"
         },
         {
           "id": 6,
@@ -48889,7 +50085,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 43031.0
+          "total_lbs": 43031.0,
+          "schedule": "continuous"
         },
         {
           "id": 7,
@@ -49046,7 +50243,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 177961.0
+          "total_lbs": 177961.0,
+          "schedule": "continuous"
         },
         {
           "id": 8,
@@ -49104,7 +50302,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 24385.95
+          "total_lbs": 24385.95,
+          "schedule": "continuous"
         },
         {
           "id": 9,
@@ -49144,7 +50343,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 720080.0
+          "total_lbs": 720080.0,
+          "schedule": "continuous"
         },
         {
           "id": 10,
@@ -49238,7 +50438,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 111345.64
+          "total_lbs": 111345.64,
+          "schedule": "continuous"
         },
         {
           "id": 11,
@@ -49260,7 +50461,8 @@
               "defaultActive": true
             }
           ],
-          "total_lbs": 95000.0
+          "total_lbs": 95000.0,
+          "schedule": "continuous"
         }
       ],
       "wind_grid": [
@@ -59443,11 +60645,286 @@
         }
       },
       "VOCs": {
-        "unit": "N/A",
+        "unit": "ppbC",
         "good": 50.0,
         "mod": 150.0,
         "unhealthy": 300.0,
-        "stations": {}
+        "stations": {
+          "CC_18 - Calvert City Elementary": {
+            "county": "Marshall",
+            "lat": 37.026757,
+            "lon": -88.343757,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999
+            ],
+            "voc_details": {
+              "Acetonitrile": 3.96,
+              "Chloromethane": 0.6,
+              "Toluene": 0.6,
+              "Benzene": 0.5,
+              "Dichlorodifluoromethane": 0.49,
+              "Acrolein - Verified": 0.4,
+              "Dichloromethane": 0.3,
+              "Trichlorofluoromethane": 0.2,
+              "m/p Xylene": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Methyl isobutyl ketone": 0.1,
+              "Carbon tetrachloride": 0.1,
+              "Ethylbenzene": 0.1,
+              "o-Xylene": 0.1,
+              "Styrene": 0.1,
+              "Freon 114": 0.04,
+              "Chloroethane": 0.01,
+              "1,2-Dichlorobenzene": 0.01,
+              "1,2,4-Trichlorobenzene": 0.01,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "n-Octane": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Acrylonitrile": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "Tetrachloroethylene": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Hexachlorobutadiene": 0.0,
+              "Vinyl chloride": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,3-Dichlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": true,
+            "days_diff": 2
+          },
+          "CC_20 - Johnson-Riley Road": {
+            "county": "Marshall",
+            "lat": 37.041202,
+            "lon": -88.351879,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91
+            ],
+            "voc_details": {
+              "Chloromethane": 0.6,
+              "Toluene": 0.6,
+              "Benzene": 0.5,
+              "Dichlorodifluoromethane": 0.49,
+              "Methyl isobutyl ketone": 0.4,
+              "Acetonitrile": 0.31,
+              "Acrolein - Verified": 0.3,
+              "Dichloromethane": 0.3,
+              "m/p Xylene": 0.3,
+              "n-Octane": 0.2,
+              "Trichlorofluoromethane": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Carbon tetrachloride": 0.1,
+              "Tetrachloroethylene": 0.1,
+              "Ethylbenzene": 0.1,
+              "o-Xylene": 0.1,
+              "Styrene": 0.1,
+              "Freon 114": 0.04,
+              "Chloroethane": 0.01,
+              "1,2,4-Trichlorobenzene": 0.01,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Hexachlorobutadiene": 0.0,
+              "Vinyl chloride": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,2-Dichlorobenzene": 0.0,
+              "1,3-Dichlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": true,
+            "days_diff": 2
+          },
+          "CC_21 - LWD": {
+            "county": "Marshall",
+            "lat": 37.047914,
+            "lon": -88.338323,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26
+            ],
+            "voc_details": {
+              "Acetonitrile": 0.66,
+              "Chloromethane": 0.6,
+              "Acrolein - Verified": 0.5,
+              "Dichlorodifluoromethane": 0.48,
+              "Benzene": 0.4,
+              "Toluene": 0.4,
+              "Methyl isobutyl ketone": 0.2,
+              "Dichloromethane": 0.2,
+              "Trichlorofluoromethane": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Carbon tetrachloride": 0.1,
+              "m/p Xylene": 0.1,
+              "1,2,4-Trichlorobenzene": 0.1,
+              "1,2-Dichlorobenzene": 0.05,
+              "Chloroethane": 0.04,
+              "Freon 114": 0.03,
+              "1,3-Dichlorobenzene": 0.03,
+              "Hexachlorobutadiene": 0.02,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "n-Octane": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "Tetrachloroethylene": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Vinyl chloride": 0.0,
+              "Ethylbenzene": 0.0,
+              "o-Xylene": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Styrene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": true,
+            "days_diff": 2
+          }
+        }
       },
       "Ozone": {
         "unit": "Parts per million",
@@ -60103,7 +61580,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 205610.54
+          "total_lbs": 205610.54,
+          "schedule": "continuous"
         },
         {
           "id": 1,
@@ -60161,7 +61639,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 153756.53
+          "total_lbs": 153756.53,
+          "schedule": "continuous"
         },
         {
           "id": 2,
@@ -60264,7 +61743,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 124582.6
+          "total_lbs": 124582.6,
+          "schedule": "continuous"
         },
         {
           "id": 3,
@@ -60367,7 +61847,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 58742.82
+          "total_lbs": 58742.82,
+          "schedule": "continuous"
         },
         {
           "id": 4,
@@ -60452,7 +61933,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 41.1
+          "total_lbs": 41.1,
+          "schedule": "continuous"
         },
         {
           "id": 5,
@@ -60519,7 +62001,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 24131.0
+          "total_lbs": 24131.0,
+          "schedule": "continuous"
         },
         {
           "id": 6,
@@ -60649,7 +62132,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 43031.0
+          "total_lbs": 43031.0,
+          "schedule": "continuous"
         },
         {
           "id": 7,
@@ -60806,7 +62290,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 177961.0
+          "total_lbs": 177961.0,
+          "schedule": "continuous"
         },
         {
           "id": 8,
@@ -60864,7 +62349,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 24385.95
+          "total_lbs": 24385.95,
+          "schedule": "continuous"
         },
         {
           "id": 9,
@@ -60904,7 +62390,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 720080.0
+          "total_lbs": 720080.0,
+          "schedule": "continuous"
         },
         {
           "id": 10,
@@ -60998,7 +62485,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 111345.64
+          "total_lbs": 111345.64,
+          "schedule": "continuous"
         },
         {
           "id": 11,
@@ -61020,7 +62508,8 @@
               "defaultActive": true
             }
           ],
-          "total_lbs": 95000.0
+          "total_lbs": 95000.0,
+          "schedule": "continuous"
         }
       ],
       "wind_grid": [
@@ -71203,11 +72692,286 @@
         }
       },
       "VOCs": {
-        "unit": "N/A",
+        "unit": "ppbC",
         "good": 50.0,
         "mod": 150.0,
         "unhealthy": 300.0,
-        "stations": {}
+        "stations": {
+          "CC_18 - Calvert City Elementary": {
+            "county": "Marshall",
+            "lat": 37.026757,
+            "lon": -88.343757,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999
+            ],
+            "voc_details": {
+              "Acetonitrile": 3.96,
+              "Chloromethane": 0.6,
+              "Toluene": 0.6,
+              "Benzene": 0.5,
+              "Dichlorodifluoromethane": 0.49,
+              "Acrolein - Verified": 0.4,
+              "Dichloromethane": 0.3,
+              "Trichlorofluoromethane": 0.2,
+              "m/p Xylene": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Methyl isobutyl ketone": 0.1,
+              "Carbon tetrachloride": 0.1,
+              "Ethylbenzene": 0.1,
+              "o-Xylene": 0.1,
+              "Styrene": 0.1,
+              "Freon 114": 0.04,
+              "Chloroethane": 0.01,
+              "1,2-Dichlorobenzene": 0.01,
+              "1,2,4-Trichlorobenzene": 0.01,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "n-Octane": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Acrylonitrile": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "Tetrachloroethylene": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Hexachlorobutadiene": 0.0,
+              "Vinyl chloride": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,3-Dichlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": true,
+            "days_diff": 1
+          },
+          "CC_20 - Johnson-Riley Road": {
+            "county": "Marshall",
+            "lat": 37.041202,
+            "lon": -88.351879,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91
+            ],
+            "voc_details": {
+              "Chloromethane": 0.6,
+              "Toluene": 0.6,
+              "Benzene": 0.5,
+              "Dichlorodifluoromethane": 0.49,
+              "Methyl isobutyl ketone": 0.4,
+              "Acetonitrile": 0.31,
+              "Acrolein - Verified": 0.3,
+              "Dichloromethane": 0.3,
+              "m/p Xylene": 0.3,
+              "n-Octane": 0.2,
+              "Trichlorofluoromethane": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Carbon tetrachloride": 0.1,
+              "Tetrachloroethylene": 0.1,
+              "Ethylbenzene": 0.1,
+              "o-Xylene": 0.1,
+              "Styrene": 0.1,
+              "Freon 114": 0.04,
+              "Chloroethane": 0.01,
+              "1,2,4-Trichlorobenzene": 0.01,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Hexachlorobutadiene": 0.0,
+              "Vinyl chloride": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,2-Dichlorobenzene": 0.0,
+              "1,3-Dichlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": true,
+            "days_diff": 1
+          },
+          "CC_21 - LWD": {
+            "county": "Marshall",
+            "lat": 37.047914,
+            "lon": -88.338323,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26
+            ],
+            "voc_details": {
+              "Acetonitrile": 0.66,
+              "Chloromethane": 0.6,
+              "Acrolein - Verified": 0.5,
+              "Dichlorodifluoromethane": 0.48,
+              "Benzene": 0.4,
+              "Toluene": 0.4,
+              "Methyl isobutyl ketone": 0.2,
+              "Dichloromethane": 0.2,
+              "Trichlorofluoromethane": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Carbon tetrachloride": 0.1,
+              "m/p Xylene": 0.1,
+              "1,2,4-Trichlorobenzene": 0.1,
+              "1,2-Dichlorobenzene": 0.05,
+              "Chloroethane": 0.04,
+              "Freon 114": 0.03,
+              "1,3-Dichlorobenzene": 0.03,
+              "Hexachlorobutadiene": 0.02,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "n-Octane": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "Tetrachloroethylene": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Vinyl chloride": 0.0,
+              "Ethylbenzene": 0.0,
+              "o-Xylene": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Styrene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": true,
+            "days_diff": 1
+          }
+        }
       },
       "Ozone": {
         "unit": "Parts per million",
@@ -71863,7 +73627,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 205610.54
+          "total_lbs": 205610.54,
+          "schedule": "continuous"
         },
         {
           "id": 1,
@@ -71921,7 +73686,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 153756.53
+          "total_lbs": 153756.53,
+          "schedule": "continuous"
         },
         {
           "id": 2,
@@ -72024,7 +73790,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 124582.6
+          "total_lbs": 124582.6,
+          "schedule": "continuous"
         },
         {
           "id": 3,
@@ -72127,7 +73894,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 58742.82
+          "total_lbs": 58742.82,
+          "schedule": "continuous"
         },
         {
           "id": 4,
@@ -72212,7 +73980,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 41.1
+          "total_lbs": 41.1,
+          "schedule": "continuous"
         },
         {
           "id": 5,
@@ -72279,7 +74048,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 24131.0
+          "total_lbs": 24131.0,
+          "schedule": "continuous"
         },
         {
           "id": 6,
@@ -72409,7 +74179,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 43031.0
+          "total_lbs": 43031.0,
+          "schedule": "continuous"
         },
         {
           "id": 7,
@@ -72566,7 +74337,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 177961.0
+          "total_lbs": 177961.0,
+          "schedule": "continuous"
         },
         {
           "id": 8,
@@ -72624,7 +74396,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 24385.95
+          "total_lbs": 24385.95,
+          "schedule": "continuous"
         },
         {
           "id": 9,
@@ -72664,7 +74437,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 720080.0
+          "total_lbs": 720080.0,
+          "schedule": "continuous"
         },
         {
           "id": 10,
@@ -72758,7 +74532,8 @@
               "defaultActive": false
             }
           ],
-          "total_lbs": 111345.64
+          "total_lbs": 111345.64,
+          "schedule": "continuous"
         },
         {
           "id": 11,
@@ -72780,7 +74555,8 @@
               "defaultActive": true
             }
           ],
-          "total_lbs": 95000.0
+          "total_lbs": 95000.0,
+          "schedule": "continuous"
         }
       ],
       "wind_grid": [
@@ -82963,11 +84739,286 @@
         }
       },
       "VOCs": {
-        "unit": "N/A",
+        "unit": "ppbC",
         "good": 50.0,
         "mod": 150.0,
         "unhealthy": 300.0,
-        "stations": {}
+        "stations": {
+          "CC_18 - Calvert City Elementary": {
+            "county": "Marshall",
+            "lat": 37.026757,
+            "lon": -88.343757,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999,
+              7.969999999999999
+            ],
+            "voc_details": {
+              "Acetonitrile": 3.96,
+              "Chloromethane": 0.6,
+              "Toluene": 0.6,
+              "Benzene": 0.5,
+              "Dichlorodifluoromethane": 0.49,
+              "Acrolein - Verified": 0.4,
+              "Dichloromethane": 0.3,
+              "Trichlorofluoromethane": 0.2,
+              "m/p Xylene": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Methyl isobutyl ketone": 0.1,
+              "Carbon tetrachloride": 0.1,
+              "Ethylbenzene": 0.1,
+              "o-Xylene": 0.1,
+              "Styrene": 0.1,
+              "Freon 114": 0.04,
+              "Chloroethane": 0.01,
+              "1,2-Dichlorobenzene": 0.01,
+              "1,2,4-Trichlorobenzene": 0.01,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "n-Octane": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Acrylonitrile": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "Tetrachloroethylene": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Hexachlorobutadiene": 0.0,
+              "Vinyl chloride": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,3-Dichlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": false,
+            "days_diff": 0
+          },
+          "CC_20 - Johnson-Riley Road": {
+            "county": "Marshall",
+            "lat": 37.041202,
+            "lon": -88.351879,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91,
+              4.91
+            ],
+            "voc_details": {
+              "Chloromethane": 0.6,
+              "Toluene": 0.6,
+              "Benzene": 0.5,
+              "Dichlorodifluoromethane": 0.49,
+              "Methyl isobutyl ketone": 0.4,
+              "Acetonitrile": 0.31,
+              "Acrolein - Verified": 0.3,
+              "Dichloromethane": 0.3,
+              "m/p Xylene": 0.3,
+              "n-Octane": 0.2,
+              "Trichlorofluoromethane": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Carbon tetrachloride": 0.1,
+              "Tetrachloroethylene": 0.1,
+              "Ethylbenzene": 0.1,
+              "o-Xylene": 0.1,
+              "Styrene": 0.1,
+              "Freon 114": 0.04,
+              "Chloroethane": 0.01,
+              "1,2,4-Trichlorobenzene": 0.01,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Hexachlorobutadiene": 0.0,
+              "Vinyl chloride": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,2-Dichlorobenzene": 0.0,
+              "1,3-Dichlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": false,
+            "days_diff": 0
+          },
+          "CC_21 - LWD": {
+            "county": "Marshall",
+            "lat": 37.047914,
+            "lon": -88.338323,
+            "parameter_name": "Total VOCs",
+            "hourly_data": [
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26,
+              4.26
+            ],
+            "voc_details": {
+              "Acetonitrile": 0.66,
+              "Chloromethane": 0.6,
+              "Acrolein - Verified": 0.5,
+              "Dichlorodifluoromethane": 0.48,
+              "Benzene": 0.4,
+              "Toluene": 0.4,
+              "Methyl isobutyl ketone": 0.2,
+              "Dichloromethane": 0.2,
+              "Trichlorofluoromethane": 0.2,
+              "1,1,2-Trichloro-1,2,2-trifluoroethane": 0.15,
+              "Carbon tetrachloride": 0.1,
+              "m/p Xylene": 0.1,
+              "1,2,4-Trichlorobenzene": 0.1,
+              "1,2-Dichlorobenzene": 0.05,
+              "Chloroethane": 0.04,
+              "Freon 114": 0.03,
+              "1,3-Dichlorobenzene": 0.03,
+              "Hexachlorobutadiene": 0.02,
+              "Carbon disulfide": 0.0,
+              "1,3-Butadiene": 0.0,
+              "n-Octane": 0.0,
+              "Methyl tert-butyl ether": 0.0,
+              "Tert-amyl methyl ether": 0.0,
+              "tert-Butyl ethyl ether": 0.0,
+              "Ethyl acrylate": 0.0,
+              "Methyl methacrylate": 0.0,
+              "Chloroform": 0.0,
+              "Bromoform": 0.0,
+              "1,1-Dichloroethane": 0.0,
+              "Methyl chloroform": 0.0,
+              "Ethylene dichloride": 0.0,
+              "Tetrachloroethylene": 0.0,
+              "1,1,2,2-Tetrachloroethane": 0.0,
+              "Bromomethane": 0.0,
+              "1,1,2-Trichloroethane": 0.0,
+              "Trichloroethylene": 0.0,
+              "1,1-Dichloroethylene": 0.0,
+              "Bromodichloromethane": 0.0,
+              "1,2-Dichloropropane": 0.0,
+              "trans-1,3-Dichloropropene": 0.0,
+              "cis-1,3-Dichloropropene": 0.0,
+              "Dibromochloromethane": 0.0,
+              "Chloroprene": 0.0,
+              "Bromochloromethane": 0.0,
+              "trans-1,2-Dichloroethylene": 0.0,
+              "cis-1,2-Dichloroethene": 0.0,
+              "Ethylene dibromide": 0.0,
+              "Vinyl chloride": 0.0,
+              "Ethylbenzene": 0.0,
+              "o-Xylene": 0.0,
+              "1,3,5-Trimethylbenzene": 0.0,
+              "Styrene": 0.0,
+              "Chlorobenzene": 0.0,
+              "1,4-Dichlorobenzene": 0.0
+            },
+            "sample_date": "2025-03-14",
+            "is_interpolated": false,
+            "days_diff": 0
+          }
+        }
       },
       "Ozone": {
         "unit": "Parts per million",
@@ -83206,6 +85257,19 @@
             position: 'bottomright'
         }).addTo(map);
 
+        // Stop propagation of mousedown and touchstart inside Leaflet popups
+        // to prevent Leaflet from intercepting drag events and disabling selection.
+        document.addEventListener('mousedown', function(e) {
+            if (e.target.closest('.leaflet-popup')) {
+                e.stopPropagation();
+            }
+        }, true);
+        document.addEventListener('touchstart', function(e) {
+            if (e.target.closest('.leaflet-popup')) {
+                e.stopPropagation();
+            }
+        }, true);
+
         // --- EPA MONITORING LAYERS ---
         const activeMonitorLayer = L.layerGroup().addTo(map);
         const monitorMarkers = [];
@@ -83283,7 +85347,7 @@
         }
 
         // Initialize with default pollutant
-        const defaultPollutant = Object.keys(regionalMonitorData)[0] || 'PM2.5';
+        const defaultPollutant = regionalMonitorData['VOCs'] ? 'VOCs' : (Object.keys(regionalMonitorData)[0] || 'PM2.5');
         pollutantSelect.value = defaultPollutant;
         syncActiveMonitorLayer(defaultPollutant);
 
@@ -83370,6 +85434,22 @@
 
                 const valStr = (val !== null && val !== undefined) ? (val.toFixed(2) + ' ' + m.unit) : 'No Data';
 
+                let sampleDateRow = '';
+                let measuredVocHeader = 'Measured VOC Compounds (' + m.unit + '):';
+                if (station.sample_date) {
+                    const statusText = station.is_interpolated ? ` (${station.days_diff}d nearest)` : ' (Actual)';
+                    const colorStyle = station.is_interpolated ? 'color: #F59E0B;' : 'color: #10B981;';
+                    sampleDateRow = 
+                        '<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">' +
+                            '<td style="padding: 4px 0; color: #9ca3af;">Sample Date:</td>' +
+                            '<td style="padding: 4px 0; font-weight: 600; text-align: right; ' + colorStyle + '">' + station.sample_date + statusText + '</td>' +
+                        '</tr>';
+                    
+                    if (station.is_interpolated) {
+                        measuredVocHeader = 'Measured VOC Compounds (' + m.unit + ' - Sampled ' + station.sample_date + '):';
+                    }
+                }
+
                 const popupContent = 
                     '<div style="font-family: Inter, sans-serif; font-size: 12px; color: #f3f4f6; width: 260px; background: #121214; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">' +
                         '<strong style="color: #a5b4fc; font-size: 14px; font-family: Outfit, sans-serif;">EPA Ambient Monitor</strong>' +
@@ -83391,6 +85471,7 @@
                                 '<td style="padding: 4px 0; color: #9ca3af;">Parameter:</td>' +
                                 '<td style="padding: 4px 0; font-weight: 600; text-align: right; color: #fff; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="' + station.parameter_name + '">' + station.parameter_name + '</td>' +
                             '</tr>' +
+                            sampleDateRow +
                             '<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">' +
                                 '<td style="padding: 4px 0; color: #9ca3af;">Active Hour:</td>' +
                                 '<td style="padding: 4px 0; font-weight: 600; text-align: right; color: #fff;">' + String(currentHourInt).padStart(2, '0') + ':00</td>' +
@@ -83399,11 +85480,25 @@
                                 '<td style="padding: 4px 0; color: #9ca3af;">Value:</td>' +
                                 '<td style="padding: 4px 0; font-weight: 600; text-align: right; color: #fff;">' + valStr + '</td>' +
                             '</tr>' +
-                            '<tr>' +
+                            '<tr' + (station.voc_details ? ' style="border-bottom: 1px solid rgba(255,255,255,0.05);"' : '') + '>' +
                                 '<td style="padding: 4px 0; color: #9ca3af;">Classification:</td>' +
                                 '<td style="padding: 4px 0; font-weight: 700; text-align: right; color: ' + color + ';">' + status + '</td>' +
                             '</tr>' +
                         '</table>' +
+                        (station.voc_details ? 
+                            ('<div style="margin-top: 8px; border-top: 1px dashed rgba(255,255,255,0.15); padding-top: 8px;">' +
+                                '<strong style="color: #a5b4fc; font-size: 11px; display: block; margin-bottom: 6px;">' + measuredVocHeader + '</strong>' +
+                                '<div style="max-height: 120px; overflow-y: auto; font-size: 10px; padding-right: 4px;">' +
+                                Object.keys(station.voc_details).map(compound => {
+                                    const cVal = station.voc_details[compound];
+                                    const cValStr = cVal !== null ? cVal.toFixed(3) : 'N/A';
+                                    return '<div style="display: flex; justify-content: space-between; margin-bottom: 3px; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 1px;">' +
+                                               '<span style="color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px;" title="' + compound + '">' + compound + ':</span>' +
+                                               '<span style="font-weight: 600; color: #fff;">' + cValStr + '</span>' +
+                                           '</div>';
+                                }).join('') +
+                                '</div>' +
+                            '</div>') : '') +
                     '</div>';
 
                 m.marker.setPopupContent(popupContent);
@@ -83424,10 +85519,18 @@
         const canvas = document.getElementById('particle-canvas');
         const ctx = canvas.getContext('2d');
         
+        // Move canvas inside leaflet's overlay pane so it sits behind popups (which are in popupPane)
+        map.getPanes().overlayPane.appendChild(canvas);
+        
         function resizeCanvas() {
             const size = map.getSize();
             canvas.width = size.x;
             canvas.height = size.y;
+            
+            const topLeft = map.containerPointToLayerPoint([0, 0]);
+            canvas.style.position = 'absolute';
+            canvas.style.left = topLeft.x + 'px';
+            canvas.style.top = topLeft.y + 'px';
         }
         resizeCanvas();
         
@@ -83529,13 +85632,14 @@
         }
 
         PLUME_DATA.facilities.forEach(fac => {
-            const marker = L.circleMarker([fac.lat, fac.lon], {
-                radius: 8,
-                fillColor: fac.color,
-                color: '#fff',
-                weight: 2,
-                opacity: 0.9,
-                fillOpacity: 0.8
+            const squareIcon = L.divIcon({
+                className: 'custom-facility-divicon',
+                html: `<div style="background-color: ${fac.color}; border: 1.5px solid #ffffff; width: 10px; height: 10px; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>`,
+                iconSize: [13, 13],
+                iconAnchor: [6.5, 6.5]
+            });
+            const marker = L.marker([fac.lat, fac.lon], {
+                icon: squareIcon
             }).addTo(map);
             
             facilityMarkers[fac.id] = marker;
@@ -83855,6 +85959,16 @@
             PLUME_DATA.facilities.forEach((fac, idx) => {
                 if (!activeFacilities[idx]) return;
                 
+                // Enforce operating hours schedule if configured
+                if (fac.schedule && fac.schedule !== 'continuous') {
+                    const currentHour = playbackTime;
+                    if (fac.schedule.type === 'shift') {
+                        if (currentHour < fac.schedule.start_hour || currentHour > fac.schedule.end_hour) {
+                            return;
+                        }
+                    }
+                }
+                
                 fac.chemicals.forEach(c => {
                     if (!activeChemicals[idx] || !activeChemicals[idx][c.chemical]) return;
                     
@@ -83951,6 +86065,8 @@
         // ── Draw all active particles ──
         // Size, lifespan, and per-type opacity sliders are read every frame.
         function drawParticles() {
+            resizeCanvas();
+            const topLeft = map.containerPointToLayerPoint([0, 0]);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             document.getElementById('active-count').textContent = particles.length;
             
@@ -83968,7 +86084,7 @@
                 const ll = L.latLng(p.lat, p.lon);
                 if (!bounds.contains(ll)) continue;
                 
-                const pt = map.latLngToContainerPoint(ll);
+                const pt = map.latLngToLayerPoint(ll);
                 const ageFade = Math.max(0, 1 - (ageMin / liveLifespan));
                 if (ageFade <= 0.01) continue;
 
@@ -83982,8 +86098,8 @@
                 
                 const jx = (jHash(i, p.fac) - 0.5) * 2.5;
                 const jy = (jHash(i + 7919, p.fac) - 0.5) * 2.5;
-                const px = pt.x + jx;
-                const py = pt.y + jy;
+                const px = pt.x - topLeft.x + jx;
+                const py = pt.y - topLeft.y + jy;
                 
                 ctx.beginPath();
                 ctx.arc(px, py, radius, 0, 6.2832);
