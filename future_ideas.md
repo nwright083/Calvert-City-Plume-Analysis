@@ -3,6 +3,7 @@
 This document serves as a living roadmap of future ideas, improvements, and bug fixes for the Calvert City Plume Dispersion simulation project. These tasks are organized by category and rated by relative implementation difficulty.
 
 ---
+# sync test - verified pipeline functionality
 
 ## 1. Quick Fixes & UI Enhancements
 
