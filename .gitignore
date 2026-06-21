@@ -163,7 +163,6 @@ Thumbs.db
 
 # Project-specific large data files
 *.ARL
-*.csv
 grib_data/
 bdyfiles
 
