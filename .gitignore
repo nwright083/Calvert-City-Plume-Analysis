@@ -174,3 +174,6 @@ bdyfiles
 **/PAR_ASC.txt
 **/VMSDIST
 
+# Git worktree for web deployment
+web-deploy-worktree/
+
