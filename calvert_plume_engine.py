@@ -69,7 +69,7 @@ MAP_ZOOM_LEVEL = 12  # Default Leaflet initial zoom view setting
 #
 FACILITIES = {
     "Westlake Vinyls": {
-        "coords": (37.0345, -88.3512),
+        "coords": (37.04909631633214, -88.33221487571784),
         "color": "#FF00FF",
         "tri_id": "42029WSTLK2468I",
         "csv_match_name": "WESTLAKE VINYLS INC",
@@ -77,7 +77,7 @@ FACILITIES = {
         "schedule": "continuous"
     },
     "Westlake PVC Plant": {
-        "coords": (37.0430, -88.3410),
+        "coords": (37.04497026897765, -88.34947586035418),
         "color": "#DA70D6",
         "tri_id": "42029PCFCWJOHNS",
         "csv_match_name": "WESTLAKE VINYLS INC. - PVC",
@@ -85,7 +85,7 @@ FACILITIES = {
         "schedule": "continuous"
     },
     "Arkema Inc": {
-        "coords": (37.0548, -88.3670),
+        "coords": (37.05626272127821, -88.36652857343046),
         "color": "#00FFFF",
         "tri_id": "42029PNNWLALTON",
         "csv_match_name": "ARKEMA",
@@ -93,7 +93,7 @@ FACILITIES = {
         "schedule": "continuous"
     },
     "CC Metals & Alloys": {
-        "coords": (37.0540, -88.3510),
+        "coords": (37.055574243875, -88.35030650294469),
         "color": "#FF4444",
         "tri_id": "42029SKWLLHIGHW",
         "csv_match_name": "CC METALS",
@@ -101,7 +101,7 @@ FACILITIES = {
         "schedule": "continuous"
     },
     "Cymetech Corp": {
-        "coords": (37.0330, -88.3350),
+        "coords": (37.049673766088034, -88.33079423057185),
         "color": "#FF8C00",
         "tri_id": "42029CYMTC2468I",
         "csv_match_name": "CYMETECH",
@@ -109,7 +109,7 @@ FACILITIES = {
         "schedule": "continuous"
     },
     "Estron Chemicals": {
-        "coords": (37.0420, -88.3500),
+        "coords": (37.04510728259582, -88.35514068582937),
         "color": "#32CD32",
         "tri_id": "42029STRNCHIGHW",
         "csv_match_name": "ESTRON",
@@ -117,7 +117,7 @@ FACILITIES = {
         "schedule": "continuous"
     },
     "Evonik Corp": {
-        "coords": (37.0380, -88.3520),
+        "coords": (37.04256178133411, -88.34571245940829),
         "color": "#FF1493",
         "tri_id": "42029DGSSCRTE28",
         "csv_match_name": "EVONIK",
@@ -125,7 +125,7 @@ FACILITIES = {
         "schedule": "continuous"
     },
     "ISP Chemicals": {
-        "coords": (37.0390, -88.3510),
+        "coords": (37.04956777490956, -88.3610257943388),
         "color": "#00FF7F",
         "tri_id": "42029GFCHMHIGHW",
         "csv_match_name": "ISP CHEMICALS",
@@ -133,7 +133,7 @@ FACILITIES = {
         "schedule": "continuous"
     },
     "Lubrizol Advanced Materials": {
-        "coords": (37.0350, -88.3340),
+        "coords": (37.04859077950765, -88.3317972924827),
         "color": "#9370DB",
         "tri_id": "42029NVNNC2468I",
         "csv_match_name": "LUBRIZOL",
@@ -141,7 +141,7 @@ FACILITIES = {
         "schedule": "continuous"
     },
     "Sekisui Specialty Chemicals": {
-        "coords": (37.0410, -88.3380),
+        "coords": (37.043812105671584, -88.35109849432436),
         "color": "#FFD700",
         "tri_id": "42029CLNSL408NM",
         "csv_match_name": "SEKISUI",
@@ -149,7 +149,7 @@ FACILITIES = {
         "schedule": "continuous"
     },
     "Wacker Chemical": {
-        "coords": (37.0440, -88.3480),
+        "coords": (37.04472839351968, -88.3534802959446),
         "color": "#1E90FF",
         "tri_id": "4202WWCKRC412NR",
         "csv_match_name": "WACKER",
@@ -157,7 +157,7 @@ FACILITIES = {
         "schedule": "continuous"
     },
     "Carbide Industries": {
-        "coords": (37.0522, -88.3414),
+        "coords": (37.05339786418546, -88.34285478599523),
         "color": "#FFFF00",
         "tri_id": "42029THCRB3204I",
         "csv_match_name": "CARBIDE",
