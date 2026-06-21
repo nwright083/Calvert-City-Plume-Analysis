@@ -33,6 +33,7 @@ cp calvert_plume_engine_one_day.py web-deploy-worktree/
 cp fetch_aqs_data.py web-deploy-worktree/
 cp api2arl.cfg web-deploy-worktree/
 cp future_ideas.md web-deploy-worktree/
+cp README.md web-deploy-worktree/
 cp index.html web-deploy-worktree/
 
 # Switch context to the worktree
