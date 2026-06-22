@@ -15,6 +15,13 @@ This document serves as a living roadmap of future ideas, improvements, and bug 
   * In `index.html`, Leaflet intercepts mousewheel and click events on panel overlays. We need to disable event propagation to the map container by invoking Leaflet's `L.DomEvent.disableScrollPropagation(element)` and `L.DomEvent.disableClickPropagation(element)` on the legend and control panels.
   * Verify that `.facility-list` has proper max-height or height constraints so that `overflow-y: auto` triggers correctly.
 
+### 🟢 Fix Particle Density Scaling Bug
+* **Status**: 🔴 Pending Fix (Bug Identified)
+* **Difficulty**: Easy
+* **Description**: The particle count scaling for different facilities evaluates to the floor of 10 particles/hour because of a key mismatch (`"lbs_year"` vs `"total_lbs"`) in `write_setup_file()`.
+* **Proposed Solution**:
+  * Update `write_setup_file()` in `calvert_plume_engine.py` to use `"total_lbs"` instead of `"lbs_year"` when summing facility emissions.
+
 ---
 
 ## 2. Coordinates & Data Accuracy
@@ -62,6 +69,39 @@ This document serves as a living roadmap of future ideas, improvements, and bug 
 * **Proposed Solution**:
   * Adjust HYSPLIT's `SETUP.cfg` and `CONTROL` configurations to dump particle positions at shorter intervals (e.g., every 5 or 10 minutes).
   * Determine if HRRR meteorological data can be interpolated by HYSPLIT to support smooth sub-hourly calculations.
+
+### 🟡 Model Plume Rise & Buoyant Stacks
+* **Status**: 🔴 Not Implemented
+* **Difficulty**: Medium
+* **Description**: Emissions currently release at a fixed height of 15m. Real industrial stacks emit gases with thermal and momentum buoyancy, which rises above the physical stack top.
+* **Proposed Solution**:
+  * Modify the `CONTROL` file generator to accept and output stack properties (diameter, exit temperature, exit velocity) for each facility.
+  * Configure HYSPLIT's internal plume rise algorithms to dynamically compute buoyancy and momentum plumes.
+
+### 🟡 Split Stack vs. Fugitive Emissions
+* **Status**: 🔴 Not Implemented
+* **Difficulty**: Medium
+* **Description**: Facilities combine fugitive (ground-level) and stack (elevated) emissions into a single 15m release.
+* **Proposed Solution**:
+  * Parse fugitive and stack emissions separately from the TRI CSV.
+  * Model elevated stack releases as point sources and ground-level fugitive leaks as area sources in the HYSPLIT run configurations.
+
+### 🔴 Chemical-Specific Particle Deposition (Dry/Wet Scavenging)
+* **Status**: 🔴 Not Implemented
+* **Difficulty**: Hard
+* **Description**: Currently, all emissions are simulated as a non-depositing tracer gas. Heavy molecules like ethylene dichloride (which is heavier than air) or water-soluble gases drop out of the plume via gravitational settling, dry deposition, or rain washout, polluting the ground and water.
+* **Proposed Solution**:
+  * Define specific dry deposition velocities, molecular weight, and wet scavenging coefficients (Henry's Law constants, below-cloud washout ratio) for target chemical species in the `CONTROL` file.
+  * Enable gravity settling for heavier particulates and gas-phase dry/wet deposition parameters inside the HYSPLIT physics configurations.
+
+### 🔴 Soil & Water Accumulation Heatmaps (Deposition Mapping)
+* **Status**: 🔴 Not Implemented
+* **Difficulty**: Hard
+* **Description**: Trace deposition over multiple days to show where chemicals build up in the local environment, particularly identifying whether nearby water bodies (like the Tennessee/Ohio River) or sensitive land areas are receiving high deposition loads.
+* **Proposed Solution**:
+  * Configure HYSPLIT to output deposition grids (`cdump` file with deposition concentration).
+  * Parse the deposition grid outputs in the Python engine and compile cumulative deposit grids.
+  * Render an interactive Leaflet heatmap overlay in the HTML dashboard representing cumulative pollutant accumulation over the course of the simulation.
 
 ---
 
