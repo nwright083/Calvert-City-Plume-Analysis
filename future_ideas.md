@@ -86,22 +86,17 @@ This document serves as a living roadmap of future ideas, improvements, and bug 
   * Parse fugitive and stack emissions separately from the TRI CSV.
   * Model elevated stack releases as point sources and ground-level fugitive leaks as area sources in the HYSPLIT run configurations.
 
-### 🔴 Chemical-Specific Particle Deposition (Dry/Wet Scavenging)
-* **Status**: 🔴 Not Implemented
+### 🟡 Chemical-Specific Particle Deposition (Dry/Wet Scavenging)
+* **Status**: 🟡 Partially Implemented (Client-Side Simulation)
 * **Difficulty**: Hard
-* **Description**: Currently, all emissions are simulated as a non-depositing tracer gas. Heavy molecules like ethylene dichloride (which is heavier than air) or water-soluble gases drop out of the plume via gravitational settling, dry deposition, or rain washout, polluting the ground and water.
-* **Proposed Solution**:
-  * Define specific dry deposition velocities, molecular weight, and wet scavenging coefficients (Henry's Law constants, below-cloud washout ratio) for target chemical species in the `CONTROL` file.
-  * Enable gravity settling for heavier particulates and gas-phase dry/wet deposition parameters inside the HYSPLIT physics configurations.
+* **Description**: Heavy molecules or water-soluble gases deposit out of the plume. Currently, we have implemented client-side dry deposition in the browser sandbox. Each chemical has specific dry deposition parameters (Vd, molecular weight, reactivity) used to simulate particle mass depletion and ground deposition on the fly.
+* **Future Work**: Transition to a HYSPLIT-native deposition calculation once the SIGFPE (Floating-point exception) during multi-level grid runs in the HYSPLIT executable environment is resolved.
 
-### 🔴 Soil & Water Accumulation Heatmaps (Deposition Mapping)
-* **Status**: 🔴 Not Implemented
+### 🟡 Soil & Water Accumulation Heatmaps (Deposition Mapping)
+* **Status**: 🟡 Partially Implemented (Client-Side Dynamic Heatmap)
 * **Difficulty**: Hard
-* **Description**: Trace deposition over multiple days to show where chemicals build up in the local environment, particularly identifying whether nearby water bodies (like the Tennessee/Ohio River) or sensitive land areas are receiving high deposition loads.
-* **Proposed Solution**:
-  * Configure HYSPLIT to output deposition grids (`cdump` file with deposition concentration).
-  * Parse the deposition grid outputs in the Python engine and compile cumulative deposit grids.
-  * Render an interactive Leaflet heatmap overlay in the HTML dashboard representing cumulative pollutant accumulation over the course of the simulation.
+* **Description**: Trace deposition over time to show chemical buildup. We have implemented a client-side dynamic pre-calculator and Leaflet heatmap overlay. Checking the legend's toggle checkbox runs a fast 24-hour particle simulation at load/toggle time to generate the hourly cumulative deposition grid and displays it with a warm gradient.
+* **Future Work**: Transition to parsing HYSPLIT-native `cdump` level-0 deposition output to leverage HYSPLIT's internal boundary-layer physics once the empty concentration grid and SIGFPE crashes are fixed.
 
 ---
 
