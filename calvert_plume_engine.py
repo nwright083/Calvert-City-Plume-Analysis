@@ -4172,7 +4172,9 @@ class CalvertCityPlumeEngine:
         const tooltipTitle = document.getElementById('tooltip-title');
         const tooltipBody = document.getElementById('tooltip-body');
         
-        map.on('mousemove', (e) => {{
+        let lastMouseEvt = null;
+        function updateTooltip(e) {{
+            if (!e) return;
             const mp = e.containerPoint;
             let hit = null;
             
@@ -4218,8 +4220,10 @@ class CalvertCityPlumeEngine:
                     if (cellVal !== undefined && cellVal > 0) {{
                         tooltipTitle.textContent = "🌡️ Surface Deposition";
                         tooltipTitle.style.color = "#f59e0b";
-                        const timeProgress = Math.min(1.0, playbackTime / 24.0);
-                        const intensity = Math.min(1.0, Math.pow(cellVal / liveDepMax, DEP_GAMMA) * timeProgress);
+                        const depGrid = PLUME_DATA.deposition_grid;
+                        const maxVal = (depGrid && depGrid.max_val > 0) ? depGrid.max_val : liveDepMax;
+                        const rel = cellVal / maxVal;
+                        const intensity = Math.min(1.0, rel);
                         let risk = "Low"; let riskColor = "#22c55e";
                         if (intensity >= 0.5) {{ risk = "High"; riskColor = "#ef4444"; }}
                         else if (intensity >= 0.15) {{ risk = "Moderate"; riskColor = "#f59e0b"; }}
@@ -4273,10 +4277,16 @@ class CalvertCityPlumeEngine:
                 }}
                 tooltip.style.display = 'none';
             }}
+        }}
+
+        map.on('mousemove', (e) => {{
+            lastMouseEvt = e;
+            updateTooltip(e);
         }});
         
         map.on('mouseout', () => {{
             tooltip.style.display = 'none';
+            lastMouseEvt = null;
         }});
 
         // Play/Pause
@@ -4377,10 +4387,11 @@ class CalvertCityPlumeEngine:
                     if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
                     return;
                 }}
-                const timeProgress = Math.min(1.0, playbackTime / 24.0);
+                const depGrid = PLUME_DATA.deposition_grid;
+                const maxVal = (depGrid && depGrid.max_val > 0) ? depGrid.max_val : liveDepMax;
                 for (const [key, val] of liveDepGrid) {{
-                    const rel = val / liveDepMax;
-                    const intensity = Math.min(1.0, Math.pow(rel, DEP_GAMMA) * timeProgress);
+                    const rel = val / maxVal;
+                    const intensity = Math.min(1.0, rel); // Linear scale!
                     if (intensity >= 0.003) {{
                         const comma = key.indexOf(',');
                         heatPoints.push([parseFloat(key.slice(0, comma)), parseFloat(key.slice(comma + 1)), intensity]);
@@ -4512,6 +4523,7 @@ class CalvertCityPlumeEngine:
                 particles = [];
                 liveDepGrid = new Map(); // reset live accumulator; grows fresh as particles deposit
                 liveDepMax = 0;
+                recalculateDeposition(); // precomputes sandbox deposition grid and sets max_val
             }}
             lastDepositionHour = -1;  // kept for compat
             lastDepUpdateTime = -999;
@@ -4565,6 +4577,9 @@ class CalvertCityPlumeEngine:
             }}
             
             drawParticles();
+            if (lastMouseEvt && tooltip.style.display === 'block') {{
+                updateTooltip(lastMouseEvt);
+            }}
             requestAnimationFrame(tick);
         }}
         
@@ -4577,6 +4592,7 @@ class CalvertCityPlumeEngine:
         // Start in sandbox mode: live deposition accumulator grows from scratch as particles deposit.
         // HYSPLIT reference footprint is selectable from the dropdown — no batch precompute on load.
         particleSource = 'sandbox';
+        recalculateDeposition();
 
         // Boot
         requestAnimationFrame(tick);
