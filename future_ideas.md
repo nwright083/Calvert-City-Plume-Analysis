@@ -86,17 +86,16 @@ This document serves as a living roadmap of future ideas, improvements, and bug 
   * Parse fugitive and stack emissions separately from the TRI CSV.
   * Model elevated stack releases as point sources and ground-level fugitive leaks as area sources in the HYSPLIT run configurations.
 
-### 🟡 Chemical-Specific Particle Deposition (Dry/Wet Scavenging)
-* **Status**: 🟡 Partially Implemented (Client-Side Simulation)
+### 🟢 Chemical-Specific Particle Deposition (Dry/Wet Scavenging)
+* **Status**: 🟢 Implemented (Mac SIGFPE Workaround: Offline Python Particle Binning)
 * **Difficulty**: Hard
-* **Description**: Heavy molecules or water-soluble gases deposit out of the plume. Currently, we have implemented client-side dry deposition in the browser sandbox. Each chemical has specific dry deposition parameters (Vd, molecular weight, reactivity) used to simulate particle mass depletion and ground deposition on the fly.
-* **Future Work**: Transition to a HYSPLIT-native deposition calculation once the SIGFPE (Floating-point exception) during multi-level grid runs in the HYSPLIT executable environment is resolved.
+* **Description**: Heavy molecules or water-soluble gases deposit out of the plume. Due to a Mac-specific HYSPLIT concentration grid calculation crash (SIGFPE), the simulation runs HYSPLIT in stable particle-only mode and performs chemical-specific deposition grid calculation offline in Python.
+* **Implementation**: We define dummy concentration grid sampling times in the `CONTROL` file to bypass the HYSPLIT grid routine. During post-processing, the engine parses hourly particle dumps from `PAR_GIS.txt`. Low-level particles (height <= 100m) are binned into 0.02-degree grid cells. The surface deposition mass is accumulated by weighting each particle's contribution by its parent facility's chemical emissions and deposition velocities ($V_d$), with linear height-based scaling. Henry's Law constants ($H$) are exported to the frontend to document solubility.
 
-### 🟡 Soil & Water Accumulation Heatmaps (Deposition Mapping)
-* **Status**: 🟡 Partially Implemented (Client-Side Dynamic Heatmap)
+### 🟢 Soil & Water Accumulation Heatmaps (Deposition Mapping)
+* **Status**: 🟢 Implemented (Offline Python Binned Heatmap)
 * **Difficulty**: Hard
-* **Description**: Trace deposition over time to show chemical buildup. We have implemented a client-side dynamic pre-calculator and Leaflet heatmap overlay. Checking the legend's toggle checkbox runs a fast 24-hour particle simulation at load/toggle time to generate the hourly cumulative deposition grid and displays it with a warm gradient.
-* **Future Work**: Transition to parsing HYSPLIT-native `cdump` level-0 deposition output to leverage HYSPLIT's internal boundary-layer physics once the empty concentration grid and SIGFPE crashes are fixed.
+* **Description**: Trace deposition over time to show chemical buildup. The deposition heatmap displays the accumulated surface deposition calculated offline by binning low-level particles, corrected to units of `g/m²`. Tooltips display molecular weight, dry deposition velocity ($V_d$), and solubility/Henry's Law constant ($H$).
 
 ---
 

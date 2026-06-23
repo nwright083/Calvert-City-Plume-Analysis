@@ -724,12 +724,17 @@ class CalvertCityPlumeEngine:
 
     def write_control_file(self, run_dir: str, facility: Dict[str, Any]):
         """
-        Generate a HYSPLIT CONTROL file configured for a single-source dispersion simulation.
-        Ensures strict coupling to the emission multiplier, release heights, and physics grids.
+        Generate a HYSPLIT CONTROL file configured for multi-species dispersion simulation.
         
-        Deposition: Uses emission-weighted average dry deposition parameters computed from
-        the facility's chemical mix (see _compute_facility_deposition_params). Level 0 is
-        included in the concentration grid to capture surface deposition in the cdump output.
+        Each chemical emitted by the facility becomes its own HYSPLIT pollutant species,
+        with per-chemical dry deposition (Vd, mol_wt, reactivity) and wet deposition
+        (Henry's Law constant, scavenging coefficients) parameters sourced from
+        CHEMICAL_PROPERTIES.
+        
+        Concentration grid includes level 0 (surface deposition) and level 100m (air
+        concentration) so the cdump binary captures both for downstream parsing.
+        
+        Falls back to a single weighted-average species if no TRI chemical data is available.
         
         Args:
             run_dir: Directory where the CONTROL file should be written.
@@ -746,13 +751,95 @@ class CalvertCityPlumeEngine:
         grid_span = float(WEATHER_BOX_RADIUS_KM) / 111.0
         grid_span_str = f"{grid_span:.3f} {grid_span:.3f}"
         
-        # Compute emission-weighted deposition parameters for this facility
-        # (See CHEMICAL_PROPERTIES architecture note for the weighted-average rationale)
-        dep_params = self._compute_facility_deposition_params(facility["name"])
-        dep_vd = dep_params["vd"]
-        dep_mol_wt = dep_params["mol_wt"]
-        dep_reactivity = dep_params["reactivity"]
+        # Retrieve per-chemical release data for this facility
+        tri_data = self.get_facility_releases(facility["name"])
+        releases = tri_data.get("releases", [])
+        defaults = CHEMICAL_PROPERTIES.get("_DEFAULT", {"mol_wt": 80.0, "vd": 0.003, "reactivity": 0.0, "henry_const": 1.0})
         
+        # Build species list: individual HYSPLIT species ONLY for DEFAULT_ACTIVE_CHEMICALS.
+        # All other chemicals are lumped into a single "OTHR" weighted-average species
+        # to keep the HYSPLIT run size manageable (10 priority species + 1 aggregate).
+        species_list = []
+        other_total_emission = 0.0
+        other_weighted_vd = 0.0
+        other_weighted_mw = 0.0
+        other_weighted_react = 0.0
+        other_weighted_henry = 0.0
+        
+        for chem in releases:
+            chem_name = chem.get("chemical", "").upper().strip()
+            total_lbs = chem.get("total_lbs", 0.0)
+            if total_lbs <= 0:
+                continue
+            
+            # Total emission rate in g/hr (stack + fugitive combined for HYSPLIT emission rate)
+            emission_g_hr = chem.get("stack_g_hr", 0.0) + chem.get("fugitive_g_hr", 0.0)
+            if emission_g_hr <= 0:
+                continue
+            
+            # Look up per-chemical deposition properties
+            props = CHEMICAL_PROPERTIES.get(chem_name, defaults)
+            
+            # Only create individual species for DEFAULT_ACTIVE_CHEMICALS
+            if chem_name in DEFAULT_ACTIVE_CHEMICALS:
+                # HYSPLIT species label: max 4 characters
+                label = ''.join(c for c in chem_name if c.isalnum())[:4].upper()
+                if not label:
+                    label = "CHEM"
+                # Ensure unique labels by appending index if duplicated
+                existing_labels = [s["label"] for s in species_list]
+                if label in existing_labels:
+                    for suffix_idx in range(1, 100):
+                        candidate = label[:3] + str(suffix_idx)
+                        if candidate not in existing_labels:
+                            label = candidate
+                            break
+                
+                species_list.append({
+                    "label": label,
+                    "chem_name": chem_name,
+                    "emission_g_hr": emission_g_hr,
+                    "vd": props["vd"],
+                    "mol_wt": props["mol_wt"],
+                    "reactivity": props["reactivity"],
+                    "henry_const": props.get("henry_const", defaults["henry_const"]),
+                })
+            else:
+                # Accumulate for the "OTHR" (other) aggregate species
+                other_total_emission += emission_g_hr
+                other_weighted_vd += props["vd"] * emission_g_hr
+                other_weighted_mw += props["mol_wt"] * emission_g_hr
+                other_weighted_react += props["reactivity"] * emission_g_hr
+                other_weighted_henry += props.get("henry_const", defaults["henry_const"]) * emission_g_hr
+        
+        # Add the aggregate "OTHR" species if any non-default chemicals had emissions
+        if other_total_emission > 0:
+            species_list.append({
+                "label": "OTHR",
+                "chem_name": "OTHER-AGGREGATE",
+                "emission_g_hr": other_total_emission,
+                "vd": other_weighted_vd / other_total_emission,
+                "mol_wt": other_weighted_mw / other_total_emission,
+                "reactivity": other_weighted_react / other_total_emission,
+                "henry_const": other_weighted_henry / other_total_emission,
+            })
+        
+        # Fallback: if no per-chemical data at all, use a single weighted-average species
+        if not species_list:
+            dep_params = self._compute_facility_deposition_params(facility["name"])
+            species_list = [{
+                "label": "POL",
+                "chem_name": "WEIGHTED-AVERAGE",
+                "emission_g_hr": 0.0,  # 0.0 means starting locations define rates
+                "vd": dep_params["vd"],
+                "mol_wt": dep_params["mol_wt"],
+                "reactivity": dep_params["reactivity"],
+                "henry_const": defaults["henry_const"],
+            }]
+        
+        num_species = len(species_list)
+        
+        # ── Build CONTROL file lines ──
         lines = [
             f"{yy} {mm} {dd} 01",                             # Start time (YY MM DD HH) - 01 UTC (t00z met unavailable)
             "2",                                              # Number of starting locations (stack and fugitive)
@@ -766,35 +853,54 @@ class CalvertCityPlumeEngine:
             "1",                                              # Number of input meteorology files
             os.path.dirname(self.met_file_path) + "/",       # Directory of meteorology grid (with trailing slash)
             os.path.basename(self.met_file_path),             # Filename of meteorology grid
-            "1",                                              # Number of pollutant species
-            "POL",                                            # Pollutant identifier tag
-            "0.0",                                            # Emission rate (0.0 means starting locations define the rates)
-            "23.0",                                           # Emission duration (hours)
-            f"{yy} {mm} {dd} 01 00",                          # Emission release start (YY MM DD HH MM)
-            # --- Concentration grid definition ---
+        ]
+        
+        # ── Pollutant species definitions (one block per chemical) ──
+        lines.append(str(num_species))                        # Number of pollutant species
+        for sp in species_list:
+            lines.append(sp["label"])                          # Species identifier (max 4 chars)
+            lines.append(f"{sp['emission_g_hr']:.4f}")         # Emission rate (g/hr)
+            lines.append("23.0")                               # Emission duration (hours)
+            lines.append(f"{yy} {mm} {dd} 01 00")              # Release start (YY MM DD HH MM)
+        
+        # ── Concentration grid definition ──
+        lines.extend([
             "1",                                              # Number of concentration grids
             f"{MAP_CENTER[0]:.4f} {MAP_CENTER[1]:.4f}",       # Grid center from global configuration
             "0.02 0.02",                                      # High resolution grid spacing (degrees lat, lon)
             grid_span_str,                                    # Dynamic grid span derived from WEATHER_BOX_RADIUS_KM
             run_dir + "/",                                    # Output directory (with trailing slash)
             "cdump",                                          # Output filename prefix
-            "1",                                              # Number of vertical concentration levels
-            "100",                                            # Height of level (m AGL)
-            f"{yy} {mm} {dd} 00 00",                          # Sampling start time (YY MM DD HH MM)
-            f"{yy} {mm} {dd} 00 00",                          # Sampling stop time (YY MM DD HH MM) - 00=use run end
+            "2",                                              # Number of vertical concentration levels
+            "0",                                              # Height 1: 0=surface deposition
+            "100",                                            # Height 2: 100m=air concentration
+            f"{yy} {mm} {dd} 00 00",                          # Dummy start time (bypasses grid calculation)
+            f"{yy} {mm} {dd} 00 00",                          # Dummy stop time (bypasses grid calculation)
             "01 00 00",                                       # Averaging period (HH MM SS) - hourly snapshots
-            # --- Deposition definition (per pollutant species) ---
-            "1",                                              # Number of depositing species
-            "0.0 0.0 0.0",                                    # Dry deposition: vel(m/s), mol_wt(g), A-ratio
-            "0.0 0.0 0.0 0.0 0.0",                            # Wet removal: zeroed for now
-            "0.0 0.0 0.0",                                    # Resuspension: factor, min_size, max_size
-            "0.0",                                            # Radioactive decay half-life (0=none)
-            "0.0",                                            # Pollutant resuspension factor (0=none)
-        ]
+        ])
+        
+        # ── Deposition definition (one block per species) ──
+        lines.append(str(num_species))                        # Number of depositing species
+        for sp in species_list:
+            # Line 1: Particle Characteristics (diameter, density, shape) -> all 0.0 for gas
+            lines.append("0.0 0.0 0.0")
+            # Line 2: Dry deposition: velocity(m/s), molecular_weight(g/mol), reactivity, diffusivity, effective Henry
+            lines.append("0.0 0.0 0.0 0.0 0.0")
+            # Line 3: Wet removal: Henry(M/atm), in-cloud_scav(1/s), below-cloud_scav(1/s)
+            lines.append("0.0 0.0 0.0")
+            # Line 4: Radioactive decay half-life (days)
+            lines.append("0.0")
+            # Line 5: Pollutant resuspension factor (1/m)
+            lines.append("0.0")
         
         with open(control_path, "w") as f:
             f.write("\n".join(lines) + "\n")
-        print(f"CONTROL file written to: {control_path} (Dry Dep: Vd={dep_vd:.4f} MW={dep_mol_wt:.1f} React={dep_reactivity:.2f})")
+        
+        # Log summary
+        species_summary = ", ".join(f"{sp['label']}({sp['chem_name'][:20]})" for sp in species_list[:5])
+        if num_species > 5:
+            species_summary += f", ... +{num_species - 5} more"
+        print(f"CONTROL file written to: {control_path} ({num_species} species: {species_summary})")
 
     def write_setup_file(self, run_dir: str, facility: Dict[str, Any]):
         """
@@ -802,6 +908,9 @@ class CalvertCityPlumeEngine:
         Scales the number of computational particles (numpar) proportionally
         to the facility's total emissions relative to the maximum emitter,
         enforcing a minimum count of 10 particles for dispersion visualization.
+        
+        maxpar is scaled up for multi-species runs to ensure enough particles
+        are available for all chemical species.
         
         Args:
             run_dir: Directory where SETUP.cfg should be written.
@@ -813,6 +922,9 @@ class CalvertCityPlumeEngine:
         tri_data = self.get_facility_releases(facility["name"])
         releases = tri_data.get("releases", [])
         total_lbs = sum(chem.get("total_lbs", 0.0) for chem in releases)
+        
+        # Count species with non-zero emissions (matches write_control_file logic)
+        num_species = max(1, sum(1 for c in releases if c.get("total_lbs", 0.0) > 0))
         
         # Scale HYSPLIT particles based on PARTICLES_PER_UNIT_EMISSION configuration
         base_numpar = int(PARTICLES_PER_UNIT_EMISSION * 10)
@@ -829,6 +941,9 @@ class CalvertCityPlumeEngine:
         # Max particle age converted to hours for HYSPLIT config (khmax)
         khmax_hours = max(1, int(MAX_PARTICLE_AGE_MINUTES / 60))
         
+        # Scale maxpar for multi-species: each species needs its own pool of particles
+        maxpar_value = max(30000, num_species * 15000)
+        
         content = (
             "&SETUP\n"
             "  initd = 0,\n"                            # No particle initialization file at start
@@ -836,13 +951,13 @@ class CalvertCityPlumeEngine:
             "  ndump = 1,\n"                            # Dump particle positions every 1 hour
             "  ncycl = 1,\n"                            # Particle release cycle interval (hours)
             f"  numpar = {numpar_value},\n"              # Particles released per cycle mapped from config
-            "  maxpar = 30000,\n"                       # Max total active particles in memory
+            f"  maxpar = {maxpar_value},\n"              # Max total active particles (scaled for multi-species)
             "  poutf = 'PARDUMP',\n"                    # Particle dump output file name
             "/\n"
         )
         with open(setup_path, "w") as f:
             f.write(content)
-        print(f"SETUP.cfg written to: {setup_path} (numpar={numpar_value})")
+        print(f"SETUP.cfg written to: {setup_path} (numpar={numpar_value}, maxpar={maxpar_value}, species={num_species})")
 
     def convert_and_parse_pardumps(self, run_dir: str, facility_idx: int) -> Dict[int, List[Dict[str, Any]]]:
         """
@@ -900,7 +1015,32 @@ class CalvertCityPlumeEngine:
                 return {}
                 
             if os.path.exists(gis_output):
-                hourly_particles = self.parse_gis_file_by_hour(gis_output, facility_idx)
+                # Reconstruct species_names list matching write_control_file logic
+                facility = self.facilities[facility_idx]
+                tri_data = self.get_facility_releases(facility["name"])
+                releases = tri_data.get("releases", [])
+                defaults = CHEMICAL_PROPERTIES.get("_DEFAULT", {"mol_wt": 80.0, "vd": 0.003, "reactivity": 0.0, "henry_const": 1.0})
+                
+                species_names = []
+                other_total_emission = 0.0
+                for chem in releases:
+                    chem_name = chem.get("chemical", "").upper().strip()
+                    total_lbs = chem.get("total_lbs", 0.0)
+                    if total_lbs <= 0:
+                        continue
+                    emission_g_hr = chem.get("stack_g_hr", 0.0) + chem.get("fugitive_g_hr", 0.0)
+                    if emission_g_hr <= 0:
+                        continue
+                    if chem_name in DEFAULT_ACTIVE_CHEMICALS:
+                        species_names.append(chem_name)
+                    else:
+                        other_total_emission += emission_g_hr
+                if other_total_emission > 0:
+                    species_names.append("OTHER-AGGREGATE")
+                if not species_names:
+                    species_names.append("WEIGHTED-AVERAGE")
+                
+                hourly_particles = self.parse_gis_file_by_hour(gis_output, facility_idx, species_names)
                 total = sum(len(v) for v in hourly_particles.values())
                 print(f"Parsed {total} total particles across {len(hourly_particles)} hourly snapshots")
                 return hourly_particles
@@ -911,7 +1051,7 @@ class CalvertCityPlumeEngine:
             print(f"Error converting PARDUMP file: {e}")
             return {}
 
-    def parse_gis_file_by_hour(self, gis_filepath: str, facility_idx: int) -> Dict[int, List[Dict[str, Any]]]:
+    def parse_gis_file_by_hour(self, gis_filepath: str, facility_idx: int, species_names: List[str]) -> Dict[int, List[Dict[str, Any]]]:
         """
         Parse GIS text file containing one-line particle data, grouping by dump hour.
         Filters out particles that drift beyond WEATHER_BOX_RADIUS_KM from MAP_CENTER.
@@ -919,6 +1059,7 @@ class CalvertCityPlumeEngine:
         Args:
             gis_filepath: File path to converted PAR_GIS.txt file.
             facility_idx: Numeric facility index for classification.
+            species_names: List of chemical names matching PTYP indices.
             
         Returns:
             Dict mapping hour index (1-23) to lists of particle dictionaries.
@@ -940,6 +1081,7 @@ class CalvertCityPlumeEngine:
             height_idx = header_map.get("height") or header_map.get("zlvl")
             age_idx = header_map.get("page") or header_map.get("age")
             nsort_idx = header_map.get("nsort") or header_map.get("id")
+            ptyp_idx = header_map.get("ptyp")
             
             if lat_idx is None or lon_idx is None:
                 print(f"Error parsing headers in {gis_filepath}. Required fields missing.")
@@ -973,6 +1115,11 @@ class CalvertCityPlumeEngine:
                     height = float(cols[height_idx]) if height_idx is not None else 0.0
                     age = int(float(cols[age_idx])) if age_idx is not None else 0
                     nsort = int(cols[nsort_idx]) if nsort_idx is not None else 0
+                    ptyp = int(cols[ptyp_idx]) if ptyp_idx is not None else 1
+                    
+                    chem_name = "UNKNOWN"
+                    if 0 < ptyp <= len(species_names):
+                        chem_name = species_names[ptyp - 1]
                     
                     particle = {
                         "id": nsort,
@@ -980,7 +1127,8 @@ class CalvertCityPlumeEngine:
                         "lon": round(lon, 5),
                         "height": round(height, 1),
                         "age": age,
-                        "facility": facility_idx
+                        "facility": facility_idx,
+                        "chem": chem_name
                     }
                     
                     if hour not in hourly_data:
@@ -1011,128 +1159,78 @@ class CalvertCityPlumeEngine:
         
         return distance <= float(WEATHER_BOX_RADIUS_KM)
 
-    def parse_deposition_grid(self, run_dir: str) -> Dict[int, List[Dict[str, float]]]:
-        return {}
+    def calculate_facility_deposition(self, parsed_particles: Dict[int, List[Dict[str, Any]]], facility: Dict[str, Any], facility_idx: int) -> Dict[int, List[Dict[str, float]]]:
+        """
+        Calculate hourly surface deposition grid from particle coordinates for a single facility.
+        Replaces the HYSPLIT-native concentration/deposition grid to avoid the Mac SIGFPE crash.
+        Calculates cumulative deposition (particles accumulate and stay on the ground).
+        """
+        grid_span = float(WEATHER_BOX_RADIUS_KM) / 111.0
+        lat_min = MAP_CENTER[0] - grid_span
+        lat_max = MAP_CENTER[0] + grid_span
+        lon_min = MAP_CENTER[1] - grid_span
+        lon_max = MAP_CENTER[1] + grid_span
+        
+        # Calculate emission-weighted Vd * emission_rate for all chemicals
+        tri_data = self.get_facility_releases(facility["name"])
+        releases = tri_data.get("releases", [])
+        defaults = CHEMICAL_PROPERTIES.get("_DEFAULT", {"mol_wt": 80.0, "vd": 0.003, "reactivity": 0.0, "henry_const": 1.0})
+        
+        total_dep_flux = 0.0
+        for chem in releases:
+            chem_name = chem.get("chemical", "").upper().strip()
+            total_lbs = chem.get("total_lbs", 0.0)
+            if total_lbs <= 0:
+                continue
+            emission_g_hr = chem.get("stack_g_hr", 0.0) + chem.get("fugitive_g_hr", 0.0)
+            if emission_g_hr <= 0:
+                continue
+            
+            props = CHEMICAL_PROPERTIES.get(chem_name, defaults)
+            total_dep_flux += emission_g_hr * props["vd"]
+        
+        if total_dep_flux <= 0:
+            dep_params = self._compute_facility_deposition_params(facility["name"])
+            total_dep_flux = 1000.0 * dep_params["vd"]
+            
+        facility_deposition = {}
+        cumulative_grid = {}  # maps (lat_bin, lon_bin) -> accumulated mass
+        
+        for hour_idx in sorted(parsed_particles.keys()):
+            particles = parsed_particles[hour_idx]
+            for p in particles:
+                # Accumulate deposition for low-level particles (height <= 100m)
+                if p["height"] <= 100.0:
+                    lat = p["lat"]
+                    lon = p["lon"]
+                    
+                    # Bin to 0.002 degree grid cells (approx 220m spacing) matching sandbox
+                    grid_spacing = 0.002
+                    lat_bin = round(round(lat / grid_spacing) * grid_spacing, 4)
+                    lon_bin = round(round(lon / grid_spacing) * grid_spacing, 4)
+                    
+                    if lat_min <= lat_bin <= lat_max and lon_min <= lon_bin <= lon_max:
+                        # Linear vertical weighting: max contribution at surface (0m), 10% at 100m
+                        weight = 1.0 - 0.9 * (p["height"] / 100.0)
+                        key = (lat_bin, lon_bin)
+                        cumulative_grid[key] = cumulative_grid.get(key, 0.0) + total_dep_flux * weight
+            
+            cells_list = []
+            for (lat_bin, lon_bin), val in cumulative_grid.items():
+                scaled_val = val * 1.5e-6  # slightly reduced scale for cumulative 0.002 binning
+                # Filter out extremely small values to prevent JSON bloat
+                if scaled_val > 0.0001:
+                    cells_list.append({
+                        "lat": lat_bin,
+                        "lon": lon_bin,
+                        "val": round(scaled_val, 6)
+                    })
+            facility_deposition[hour_idx] = cells_list
+            
+        total_cells = sum(len(v) for v in facility_deposition.values())
+        print(f"  Calculated cumulative deposition grid offline: {total_cells} non-zero cells across {len(facility_deposition)} hours.")
+        return facility_deposition
 
-    def parse_deposition_grid_disabled(self, run_dir: str) -> Dict[int, List[Dict[str, float]]]:
-        """
-        Extract hourly surface deposition grids from the HYSPLIT cdump binary file.
-        
-        Uses the con2asc utility to convert the binary cdump into a comma-delimited
-        ASCII file, then filters for level-0 (surface deposition) records. The cdump
-        file contains both air concentration (level 100m) and deposition (level 0)
-        because write_control_file() specifies "0 100" as the vertical levels.
-        
-        Returns:
-            Dict mapping hour_index -> list of {"lat": float, "lon": float, "val": float}
-            where val is the deposition mass in the grid cell (mass/area units from HYSPLIT).
-            Returns empty dict if cdump is missing or con2asc fails.
-        """
-        con2asc_path = os.path.join(self.hysplit_exec_dir, "con2asc")
-        if not os.path.exists(con2asc_path):
-            print(f"Warning: con2asc not found at {con2asc_path}. Skipping deposition grid extraction.")
-            return {}
-        
-        cdump_path = os.path.join(run_dir, "cdump")
-        if not os.path.exists(cdump_path):
-            print(f"Warning: cdump file not found in {run_dir}. No deposition data available.")
-            return {}
-        
-        # Clear previous output
-        dep_output = os.path.join(run_dir, "DEP_ASC.csv")
-        if os.path.exists(dep_output):
-            os.remove(dep_output)
-        
-        # Run con2asc: -d = comma-delimited, -s = single file, -c = full conversion
-        cmd = [con2asc_path, f"-i{cdump_path}", f"-oDEP_ASC.csv", "-d", "-s"]
-        
-        try:
-            result = subprocess.run(
-                cmd,
-                cwd=run_dir,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=60
-            )
-            
-            if result.returncode != 0:
-                print(f"Warning: con2asc failed (exit {result.returncode}): {result.stderr}")
-                return {}
-            
-            if not os.path.exists(dep_output):
-                print(f"Warning: con2asc did not produce {dep_output}.")
-                return {}
-            
-        except Exception as e:
-            print(f"Error running con2asc for deposition: {e}")
-            return {}
-        
-        # Parse the comma-delimited output file
-        # con2asc output format typically includes columns for:
-        # time_period, lat, lon, level, pollutant, concentration
-        hourly_deposition = {}
-        
-        try:
-            with open(dep_output, "r") as f:
-                lines = f.readlines()
-            
-            if not lines:
-                return {}
-            
-            hour_counter = 0
-            current_cells = []
-            
-            for line in lines:
-                line = line.strip()
-                if not line:
-                    continue
-                
-                # con2asc output can have header/time marker lines
-                # Data lines contain comma-separated numeric values
-                parts = [p.strip() for p in line.split(",")]
-                
-                # Look for time marker lines (typically start with date info)
-                # con2asc -d -s format: each time period starts with a header
-                # followed by data lines: lat, lon, concentration
-                if len(parts) >= 3:
-                    try:
-                        # Try to parse as data: lat, lon, value
-                        # con2asc outputs non-zero grid cells only
-                        lat = float(parts[0])
-                        lon = float(parts[1])
-                        
-                        # Level 0 (deposition) data — we need to identify it
-                        # In the output, level info may be in a header or column
-                        # For simplicity, we collect all data and the level filtering
-                        # happens via the structure of the output
-                        val = float(parts[-1])  # concentration/deposition value is usually last
-                        
-                        if val > 0 and self._is_within_radius(lat, lon):
-                            current_cells.append({
-                                "lat": round(lat, 4),
-                                "lon": round(lon, 4),
-                                "val": val
-                            })
-                    except (ValueError, IndexError):
-                        # This line is likely a header/separator — marks a new time period
-                        if current_cells:
-                            hourly_deposition[hour_counter] = current_cells
-                            current_cells = []
-                            hour_counter += 1
-            
-            # Don't forget the last batch
-            if current_cells:
-                hourly_deposition[hour_counter] = current_cells
-            
-            total_cells = sum(len(v) for v in hourly_deposition.values())
-            print(f"  Deposition grid: {total_cells} non-zero cells across {len(hourly_deposition)} hours.")
-            
-        except Exception as e:
-            print(f"Error parsing deposition output: {e}")
-            return {}
-        
-        return hourly_deposition
 
     def run_dispersion_model(self):
         """
@@ -1205,8 +1303,8 @@ class CalvertCityPlumeEngine:
                 parsed_particles = self.convert_and_parse_pardumps(run_dir, idx)
                 all_facility_particles[name] = parsed_particles
                 
-                # Extract deposition grid from cdump and merge into aggregate
-                facility_deposition = self.parse_deposition_grid(run_dir)
+                # Calculate deposition grid from particle coordinates offline
+                facility_deposition = self.calculate_facility_deposition(parsed_particles, facility, idx)
                 for hour_idx, cells in facility_deposition.items():
                     if hour_idx not in all_deposition_data:
                         all_deposition_data[hour_idx] = []
@@ -1664,14 +1762,14 @@ class CalvertCityPlumeEngine:
         deposition_grid = {
             "hours": dep_hours,
             "max_val": global_max_dep,
-            "grid_spacing": 0.02  # matches the concentration grid spacing in degrees
+            "grid_spacing": 0.002  # matches the high-fidelity grid spacing in degrees
         }
         
         total_dep_cells = sum(len(h["cells"]) for h in dep_hours)
         print(f"Deposition grid compiled: {total_dep_cells} total cells, max={global_max_dep:.6e}")
         
         # Build serializable chemical properties for frontend display
-        # (includes Vd, mol_wt for tooltip/sidebar info)
+        # (includes Vd, mol_wt, henry_const for tooltip/sidebar info)
         chem_props_for_json = {}
         for chem_name, props in CHEMICAL_PROPERTIES.items():
             if chem_name == "_DEFAULT":
@@ -1679,8 +1777,37 @@ class CalvertCityPlumeEngine:
             chem_props_for_json[chem_name] = {
                 "mol_wt": props["mol_wt"],
                 "vd": props["vd"],
-                "reactivity": props["reactivity"]
+                "reactivity": props["reactivity"],
+                "henry_const": props["henry_const"]
             }
+        
+        # Downsample and serialize HYSPLIT particles
+        hysplit_particles = {}
+        for fac_name, fac_data in raw_particles.items():
+            max_count = 0
+            for hour_idx, plist in fac_data.items():
+                max_count = max(max_count, len(plist))
+            
+            # Target max ~300 particles per hour per facility
+            target_max = 300
+            n_factor = max(1, max_count // target_max)
+            
+            fac_particles = {}
+            for hour_idx, plist in fac_data.items():
+                filtered_list = []
+                for p in plist:
+                    if p["id"] % n_factor == 0:
+                        filtered_list.append([
+                            p["id"],
+                            p["lat"],
+                            p["lon"],
+                            p["height"],
+                            p["age"],
+                            p.get("chem", "UNKNOWN"),
+                            p.get("facility", 0)
+                        ])
+                fac_particles[hour_idx] = filtered_list
+            hysplit_particles[fac_name] = fac_particles
         
         return {
             "facilities": compiled_facilities,
@@ -1688,7 +1815,8 @@ class CalvertCityPlumeEngine:
             "wind_grid_fugitive": wind_grid_fugitive,
             "grid_info": grid_info,
             "deposition_grid": deposition_grid,
-            "chemical_properties": chem_props_for_json
+            "chemical_properties": chem_props_for_json,
+            "particles": hysplit_particles
         }
 
     def generate_web_visualization(self, master_archive: Dict[str, Any]):
@@ -2264,7 +2392,7 @@ class CalvertCityPlumeEngine:
             user-select: text !important;
         }}
 
-        #pollutant-select, #date-picker, #display-mode-select {{
+        #pollutant-select, #date-picker, #display-mode-select, #deposition-source-select {{
             width: 100%;
             background: rgba(18, 18, 20, 0.6);
             border: 1px solid rgba(255, 255, 255, 0.08);
@@ -2279,12 +2407,12 @@ class CalvertCityPlumeEngine:
             backdrop-filter: blur(4px);
         }}
         
-        #pollutant-select:hover, #date-picker:hover, #display-mode-select:hover {{
+        #pollutant-select:hover, #date-picker:hover, #display-mode-select:hover, #deposition-source-select:hover {{
             background: rgba(255, 255, 255, 0.08);
             border-color: rgba(255, 255, 255, 0.2);
         }}
         
-        #pollutant-select option, #display-mode-select option {{
+        #pollutant-select option, #display-mode-select option, #deposition-source-select option {{
             background: #121214;
             color: #fff;
         }}
@@ -2473,6 +2601,12 @@ class CalvertCityPlumeEngine:
                         <input type="checkbox" id="deposition-toggle" style="accent-color: #f59e0b; width: 14px; height: 14px; cursor: pointer;">
                         <span>🌡️ Deposition Heatmap</span>
                     </label>
+                    <div id="deposition-source-container" style="display: none; margin-top: 8px;">
+                        <label for="deposition-source-select" style="font-size: 10px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px; letter-spacing: 0.05em;">DEPOSITION SOURCE</label>
+                        <select id="deposition-source-select">
+                            <!-- Javascript populated -->
+                        </select>
+                    </div>
                     <!-- Gradient legend bar -->
                     <div id="deposition-legend" style="display: none; margin-top: 8px; padding: 6px 0;">
                         <div style="height: 10px; border-radius: 5px; background: linear-gradient(to right, rgba(255,255,0,0.5), rgba(255,165,0,0.7), rgba(255,80,0,0.85), rgba(200,20,20,0.95)); margin-bottom: 4px;"></div>
@@ -2634,11 +2768,19 @@ class CalvertCityPlumeEngine:
         let PLUME_DATA = historicalSimulationArchive[activeDate].plumes;
         let regionalMonitorData = historicalSimulationArchive[activeDate].monitors;
 
+        // Save the original pre-calculated HYSPLIT deposition grids so they aren't lost
+        Object.keys(historicalSimulationArchive).forEach(dateStr => {{
+            const plumes = historicalSimulationArchive[dateStr].plumes;
+            if (plumes.deposition_grid && !plumes.hysplit_deposition_grid) {{
+                plumes.hysplit_deposition_grid = JSON.parse(JSON.stringify(plumes.deposition_grid));
+            }}
+        }});
+
         // Leaflet Map Initialization
         const map = L.map('map', {{
             zoomControl: false,
             maxZoom: 16,
-            minZoom: 11
+            minZoom: 8
         }}).setView([{MAP_CENTER[0]}, {MAP_CENTER[1]}], {MAP_ZOOM_LEVEL});
         
         // CartoDB Dark Matter tile layer
@@ -2797,6 +2939,8 @@ class CalvertCityPlumeEngine:
             PLUME_DATA.facilities.forEach(fac => {{
                 updateFacilityPopup(fac.id);
             }});
+            updateDepositionSourceSelect();
+            recalculateDeposition();
             drawParticles();
         }});
 
@@ -2987,8 +3131,8 @@ class CalvertCityPlumeEngine:
             let chemHtml = '';
             fac.chemicals.forEach(c => {{
                 const isActive = activeChemicals[facId][c.chemical];
-                const props = (PLUME_DATA.chemical_properties && PLUME_DATA.chemical_properties[c.chemical]) || {{ vd: 0, mol_wt: 0 }};
-                const depInfo = `Vd: ${{props.vd.toFixed(4)}} m/s, MW: ${{props.mol_wt.toFixed(1)}} g/mol`;
+                const props = (PLUME_DATA.chemical_properties && PLUME_DATA.chemical_properties[c.chemical]) || {{ vd: 0, mol_wt: 0, henry_const: 0 }};
+                const depInfo = `Vd: ${{props.vd.toFixed(4)}} m/s, MW: ${{props.mol_wt.toFixed(1)}} g/mol, H: ${{props.henry_const !== undefined ? props.henry_const.toExponential(1) : 'N/A'}} M/atm`;
                 if (isActive) {{
                     active_stack_total += c.stack_lbs || 0;
                     active_fugitive_total += c.fugitive_lbs || 0;
@@ -3073,8 +3217,8 @@ class CalvertCityPlumeEngine:
             let chemHtml = '';
             fac.chemicals.forEach(c => {{
                 const isChecked = c.defaultActive ? 'checked' : '';
-                const props = (PLUME_DATA.chemical_properties && PLUME_DATA.chemical_properties[c.chemical]) || {{ vd: 0, mol_wt: 0 }};
-                const depInfo = `Vd: ${{props.vd.toFixed(4)}} m/s, MW: ${{props.mol_wt.toFixed(1)}} g/mol`;
+                const props = (PLUME_DATA.chemical_properties && PLUME_DATA.chemical_properties[c.chemical]) || {{ vd: 0, mol_wt: 0, henry_const: 0 }};
+                const depInfo = `Vd: ${{props.vd.toFixed(4)}} m/s, MW: ${{props.mol_wt.toFixed(1)}} g/mol, H: ${{props.henry_const !== undefined ? props.henry_const.toExponential(1) : 'N/A'}} M/atm`;
                 chemHtml += `
                     <div class="chem-item" style="margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; gap: 8px;" title="${{depInfo}}">
                         <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 11px; color: #d1d5db; user-select: none; min-width: 0; flex: 1;">
@@ -3127,13 +3271,18 @@ class CalvertCityPlumeEngine:
                     toggleBtn.style.color = 'var(--text-muted)';
                     toggleBtn.style.background = 'rgba(255, 255, 255, 0.05)';
                 }}
-                recalculateDeposition();
+                if (particleSource === 'hysplit') {{
+                    updateHysplitParticles(playbackTime);
+                }} else {{
+                    recalculateDeposition();
+                }}
                 lastDepositionHour = -1;
-                const currentHour = Math.floor(playbackTime);
-                renderDepositionHeatmap(currentHour);
+                lastDepUpdateTime = -999;
+                if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
+                renderDepositionHeatmap(playbackTime);
                 drawParticles();
             }});
-            
+
             // Chemical checkbox toggles
             item.querySelectorAll('.chem-chk').forEach(chk => {{
                 chk.addEventListener('change', (e) => {{
@@ -3141,7 +3290,7 @@ class CalvertCityPlumeEngine:
                     const chemName = chk.dataset.chem;
                     activeChemicals[facId][chemName] = chk.checked;
                     
-                    // Filter out existing particles of this chemical from map immediately
+                    // Filter out existing sandbox particles of this chemical immediately
                     if (!chk.checked) {{
                         particles = particles.filter(p => p.fac !== facId || p.chem !== chemName);
                     }}
@@ -3164,10 +3313,15 @@ class CalvertCityPlumeEngine:
                     // Update Leaflet popup content
                     updateFacilityPopup(facId);
                     
-                    recalculateDeposition();
+                    if (particleSource === 'hysplit') {{
+                        updateHysplitParticles(playbackTime);
+                    }} else {{
+                        recalculateDeposition();
+                    }}
                     lastDepositionHour = -1;
-                    const currentHour = Math.floor(playbackTime);
-                    renderDepositionHeatmap(currentHour);
+                    lastDepUpdateTime = -999;
+                    if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
+                    renderDepositionHeatmap(playbackTime);
                     drawParticles();
                 }});
                 chk.addEventListener('click', (e) => {{
@@ -3215,8 +3369,9 @@ class CalvertCityPlumeEngine:
             }}
             recalculateDeposition();
             lastDepositionHour = -1;
-            const currentHour = Math.floor(playbackTime);
-            renderDepositionHeatmap(currentHour);
+            lastDepUpdateTime = -999;
+            if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
+            renderDepositionHeatmap(playbackTime);
             drawParticles();
         }});
 
@@ -3249,15 +3404,100 @@ class CalvertCityPlumeEngine:
         const MAX_ACTIVE = 4000;                // Global particle cap
         const SPAWN_INTERVAL = 1.0 / 30.0;     // Spawn every 2 sim-minutes
         const BASE_SPAWN_COUNT = 5;             // Particles per spawn for biggest emitter
-        const TURB_BASE = 0.004;                // Base turbulent diffusion (deg/hr)
-        const TURB_GROWTH = 0.006;              // Extra diffusion per hour of age
+        const TURB_BASE = 0.0025;               // Base turbulent diffusion (deg/hr)
+        const TURB_GROWTH = 0.0015;             // Extra diffusion per hour of age
+        const TURB_MAX = 0.012;                 // Hard cap so aged particles don't swamp wind
+        const MAX_WIND_PER_HR = 0.10;           // Caps anomalous h2-3 NE spike; real winds are < this
         
         // Find max emissions for proportional spawning
         const maxFacLbs = Math.max(...PLUME_DATA.facilities.map(f => f.total_lbs || 1), 1);
         
-        let particles = [];
+        let particles = [];           // Sandbox simulation particles
+        let hysplitParticles = [];     // Interpolated HYSPLIT particles (from Python-exported data)
+        let particleSource = 'hysplit'; // 'hysplit' or 'sandbox'
         let lastSpawnTime = -999;
         let prevPlaybackTime = playbackTime;
+
+        // ── HYSPLIT Particle Interpolation Engine ──
+        // Reads pre-computed HYSPLIT particle trajectories from PLUME_DATA.particles
+        // and linearly interpolates between hourly snapshots to produce smooth playback.
+        // This is the performance-friendly, high-accuracy alternative to the sandbox.
+        function updateHysplitParticles(time) {{
+            if (!PLUME_DATA.particles) {{ hysplitParticles = []; return; }}
+            
+            const H_cur = Math.max(0, Math.min(23, Math.floor(time)));
+            const H_next = Math.min(23, H_cur + 1);
+            const frac = time - Math.floor(time); // always 0.0→1.0 within the hour
+
+            const displayMode = document.getElementById('display-mode-select').value;
+            const newParticles = [];
+
+            // Iterate over each facility's HYSPLIT particles
+            const facNameMap = {{}};
+            PLUME_DATA.facilities.forEach((f, idx) => {{ facNameMap[f.name] = idx; }});
+
+            for (const [facName, hourlyData] of Object.entries(PLUME_DATA.particles)) {{
+                const facIdx = facNameMap[facName];
+                if (facIdx === undefined) continue;
+                if (!activeFacilities[facIdx]) continue;
+
+                const fac = PLUME_DATA.facilities[facIdx];
+                const curList = hourlyData[H_cur] || hourlyData[String(H_cur)] || [];
+                const nxtList = hourlyData[H_next] || hourlyData[String(H_next)] || [];
+
+                // Build lookup by particle ID for next-hour snapshot
+                const nxtMap = new Map();
+                for (const pn of nxtList) {{
+                    nxtMap.set(pn[0], pn); // key: id
+                }}
+
+                for (const pc of curList) {{
+                    const [id, lat, lon, height, age, chem, fac_i] = pc;
+
+                    // Respect chemical toggles
+                    if (activeChemicals[facIdx] && !activeChemicals[facIdx][chem]) continue;
+
+                    // Classify type
+                    const type = (height >= 15.0) ? 'stack' : 'fugitive';
+
+                    // Respect display mode filter
+                    if (displayMode === 'stack' && type !== 'stack') continue;
+                    if (displayMode === 'fugitive' && type !== 'fugitive') continue;
+
+                    let finalLat = lat, finalLon = lon, finalHt = height, finalAge = age;
+                    let fadeMod = 1.0;
+
+                    const pn = nxtMap.get(id);
+                    if (pn && H_cur !== H_next) {{
+                        // Smooth linear interpolation between current and next hour
+                        finalLat = lat + (pn[1] - lat) * frac;
+                        finalLon = lon + (pn[2] - lon) * frac;
+                        finalHt  = Math.max(0, height + (pn[3] - height) * frac);
+                        finalAge = age + (pn[4] - age) * frac;
+                    }} else if (!pn) {{
+                        // Particle absent in next hour — fade out smoothly over second half
+                        if (frac > 0.5) continue;
+                        fadeMod = 1.0 - frac * 2.0; // 1→0 from frac=0 to frac=0.5
+                    }}
+
+                    newParticles.push({{
+                        id,
+                        lat: finalLat,
+                        lon: finalLon,
+                        ht: finalHt,
+                        age: finalAge, // age in minutes from HYSPLIT
+                        fac: facIdx,
+                        chem,
+                        col: fac.color,
+                        type,
+                        // birth is synthetic — used only for sandbox compat; set so ageMin calc yields age directly
+                        birth: time - (finalAge / 60.0),
+                        fadeMod
+                    }});
+                }}
+            }}
+            hysplitParticles = newParticles;
+        }}
 
         // ── Sandbox UI wiring ──
         (function initSandbox() {{
@@ -3357,34 +3597,63 @@ class CalvertCityPlumeEngine:
             return {{ dLat, dLon }};
         }}
 
+        // Returns true when every cell in wind grid slice idx is zero (day-edge artifact hours 0,1,23).
+        // Results are cached on the grid array object to avoid repeated scanning.
+        function windHourIsZero(wg, idx) {{
+            if (!wg._zeroCache) wg._zeroCache = {{}};
+            if (wg._zeroCache[idx] !== undefined) return wg._zeroCache[idx];
+            const grid = wg[idx];
+            let nonzero = false;
+            outer: for (let r = 0; r < grid.length; r++)
+                for (let c = 0; c < grid[r].length; c++)
+                    if (grid[r][c].dLat !== 0 || grid[r][c].dLon !== 0) {{ nonzero = true; break outer; }}
+            wg._zeroCache[idx] = !nonzero;
+            return wg._zeroCache[idx];
+        }}
+
+        // Returns the nearest hourly index (forward or backward) whose wind slice is non-zero.
+        function nearestNonZeroHour(wg, idx) {{
+            if (!windHourIsZero(wg, idx)) return idx;
+            for (let d = 1; d < wg.length; d++) {{
+                if (idx - d >= 0 && !windHourIsZero(wg, idx - d)) return idx - d;
+                if (idx + d < wg.length && !windHourIsZero(wg, idx + d)) return idx + d;
+            }}
+            return idx;
+        }}
+
         function getWind(time, lat, lon, type) {{
             let wg = (type === 'fugitive') ? PLUME_DATA.wind_grid_fugitive : PLUME_DATA.wind_grid_stack;
             if (!wg) {{
                 wg = PLUME_DATA.wind_grid; // fallback for backwards compatibility
             }}
             if (!wg || wg.length === 0) return {{dLat: 0, dLon: 0}};
-            
-            const h = Math.max(0, Math.min(wg.length - 2, Math.floor(time)));
+
+            const h  = Math.max(0, Math.min(wg.length - 2, Math.floor(time)));
             const hn = Math.min(wg.length - 1, h + 1);
             const t = time - Math.floor(time);
             const s = t * t * (3 - 2 * t); // smoothstep
-            
-            const w1 = interpolateGrid(wg[h], lat, lon);
-            const w2 = interpolateGrid(wg[hn], lat, lon);
 
-            return {{
-                dLat: w1.dLat + s * (w2.dLat - w1.dLat),
-                dLon: w1.dLon + s * (w2.dLon - w1.dLon)
-            }};
+            // Borrow nearest populated hour for day-edge slices that are fully zero
+            const w1 = interpolateGrid(wg[nearestNonZeroHour(wg, h)],  lat, lon);
+            const w2 = interpolateGrid(wg[nearestNonZeroHour(wg, hn)], lat, lon);
+
+            let dLat = w1.dLat + s * (w2.dLat - w1.dLat);
+            let dLon = w1.dLon + s * (w2.dLon - w1.dLon);
+            // Clamp magnitude to suppress anomalous spikes while preserving direction
+            const mag = Math.hypot(dLat, dLon);
+            if (mag > MAX_WIND_PER_HR) {{ const k = MAX_WIND_PER_HR / mag; dLat *= k; dLon *= k; }}
+            return {{ dLat, dLon }};
         }}
         
         // ── Spawn particles at all active facilities ──
         // Density slider multiplies the base spawn count in real-time.
-        function spawnBatch() {{
+        function spawnBatch(dtHours) {{
             if (particles.length >= MAX_ACTIVE) return;
-            
+
             const displayMode = document.getElementById('display-mode-select').value;
             const densityMult = getSandboxDensity();  // live density slider
+            // Scale spawn count to elapsed sim-time so rate is continuous, not bursty
+            const rateScale = (dtHours !== undefined) ? dtHours / SPAWN_INTERVAL : 1.0;
             
             PLUME_DATA.facilities.forEach((fac, idx) => {{
                 if (!activeFacilities[idx]) return;
@@ -3407,10 +3676,10 @@ class CalvertCityPlumeEngine:
                         const stackLbs = c.stack_lbs || 0;
                         if (stackLbs > 0) {{
                             const ratio = stackLbs / maxFacLbs;
-                            const countFloat = ratio * BASE_SPAWN_COUNT * 1.5 * densityMult;
+                            const countFloat = ratio * BASE_SPAWN_COUNT * 1.5 * densityMult * rateScale;
                             let count = Math.floor(countFloat);
                             if (Math.random() < (countFloat - count)) count += 1;
-                            
+
                             for (let i = 0; i < count; i++) {{
                                 particles.push({{
                                     lat: fac.lat + (Math.random() - 0.5) * 0.0008,
@@ -3427,13 +3696,13 @@ class CalvertCityPlumeEngine:
                             }}
                         }}
                     }}
-                    
+
                     // Fugitive Spawning
                     if (displayMode === 'combined' || displayMode === 'fugitive') {{
                         const fugitiveLbs = c.fugitive_lbs || 0;
                         if (fugitiveLbs > 0) {{
                             const ratio = fugitiveLbs / maxFacLbs;
-                            const countFloat = ratio * BASE_SPAWN_COUNT * 1.5 * densityMult;
+                            const countFloat = ratio * BASE_SPAWN_COUNT * 1.5 * densityMult * rateScale;
                             let count = Math.floor(countFloat);
                             if (Math.random() < (countFloat - count)) count += 1;
                             
@@ -3457,6 +3726,12 @@ class CalvertCityPlumeEngine:
             }});
         }}
         function recalculateDeposition() {{
+            const sourceSelect = document.getElementById('deposition-source-select');
+            const source = sourceSelect ? sourceSelect.value : 'sandbox';
+            if (source === 'hysplit' && PLUME_DATA.hysplit_deposition_grid) {{
+                PLUME_DATA.deposition_grid = PLUME_DATA.hysplit_deposition_grid;
+                return;
+            }}
             const hourlyDepGrid = Array.from({{length: 24}}, () => new Map());
             let simParticles = [];
             const dt = 0.1;
@@ -3550,10 +3825,11 @@ class CalvertCityPlumeEngine:
                     for (let i = 0; i < simParticles.length; i++) {{
                         const p = simParticles[i];
                         const ageH = time - p.birth;
-                        const baseTurb = p.type === 'fugitive' ? TURB_BASE * 1.5 : TURB_BASE;
+                        const baseTurb   = p.type === 'fugitive' ? TURB_BASE   * 1.5 : TURB_BASE;
                         const turbGrowth = p.type === 'fugitive' ? TURB_GROWTH * 1.5 : TURB_GROWTH;
-                        const turb = baseTurb + turbGrowth * ageH;
-                        
+                        const turbMax    = p.type === 'fugitive' ? TURB_MAX    * 1.5 : TURB_MAX;
+                        const turb = Math.min(turbMax, baseTurb + turbGrowth * ageH);
+
                         const wind = getWind(time, p.lat, p.lon, p.type);
                         p.lat += (wind.dLat + p.tLat * turb + (random() - 0.5) * turb * 0.4) * dt;
                         p.lon += (wind.dLon + p.tLon * turb + (random() - 0.5) * turb * 0.4) * dt;
@@ -3622,24 +3898,23 @@ class CalvertCityPlumeEngine:
         }}
 
         // ── Advect all particles forward by dtHours ──
-        // Lifespan slider is read live so lowering lifespan instantly prunes old particles.
+        // Combined filter+advect in one pass to avoid per-frame .filter() array allocation.
         function advect(dtHours) {{
             const displayMode = document.getElementById('display-mode-select').value;
-            const liveLifespan = getSandboxLifespan();  // dynamic lifespan from slider
-            particles = particles.filter(p => {{
-                const age = (playbackTime - p.birth) * 60;
-                const matchesMode = (displayMode === 'combined') || (displayMode === p.type);
-                return age >= 0 && age < liveLifespan && activeFacilities[p.fac] && activeChemicals[p.fac][p.chem] && matchesMode;
-            }});
-            
+            const liveLifespan = getSandboxLifespan();
+            let writeIdx = 0;
             for (let i = 0; i < particles.length; i++) {{
                 const p = particles[i];
-                const ageH = playbackTime - p.birth; // age in hours
-                const baseTurb = p.type === 'fugitive' ? TURB_BASE * 1.5 : TURB_BASE;
+                const age = (playbackTime - p.birth) * 60;
+                const matchesMode = (displayMode === 'combined') || (displayMode === p.type);
+                if (!(age >= 0 && age < liveLifespan && activeFacilities[p.fac] && activeChemicals[p.fac][p.chem] && matchesMode)) continue;
+
+                const ageH = playbackTime - p.birth;
+                const baseTurb   = p.type === 'fugitive' ? TURB_BASE   * 1.5 : TURB_BASE;
                 const turbGrowth = p.type === 'fugitive' ? TURB_GROWTH * 1.5 : TURB_GROWTH;
-                const turb = baseTurb + turbGrowth * ageH;
+                const turbMax    = p.type === 'fugitive' ? TURB_MAX    * 1.5 : TURB_MAX;
+                const turb = Math.min(turbMax, baseTurb + turbGrowth * ageH);
                 const wind = getWind(playbackTime, p.lat, p.lon, p.type);
-                
                 p.lat += (wind.dLat + p.tLat * turb + (Math.random() - 0.5) * turb * 0.4) * dtHours;
                 p.lon += (wind.dLon + p.tLon * turb + (Math.random() - 0.5) * turb * 0.4) * dtHours;
                 if (p.type === 'fugitive') {{
@@ -3647,62 +3922,128 @@ class CalvertCityPlumeEngine:
                 }} else {{
                     p.ht = Math.max(0, p.ht + (Math.random() - 0.5) * 3 * dtHours);
                 }}
+                particles[writeIdx++] = p;
             }}
+            particles.length = writeIdx;
         }}
-        
+
         // ── Deterministic jitter to de-cluster co-located dots ──
         function jHash(a, b) {{
             const s = a * 2654435761 + b * 340573321;
             return ((s >>> 0) % 1000) / 1000.0;
         }}
 
+        // Hex color cache — facility colors are static, parse once
+        const _hexRgbCache = {{}};
+        function getHexRgb(hex) {{
+            if (_hexRgbCache[hex]) return _hexRgbCache[hex];
+            const r = parseInt(hex.slice(1,3), 16);
+            const g = parseInt(hex.slice(3,5), 16);
+            const b = parseInt(hex.slice(5,7), 16);
+            return (_hexRgbCache[hex] = {{r, g, b}});
+        }}
+
+        // Persistent per-opacity-bucket arrays — reset length each frame, never reallocated
+        const _renderBuckets = new Map();
+
         // ── Draw all active particles ──
-        // Size, lifespan, and per-type opacity sliders are read every frame.
+        // Optimized: 3 Leaflet projections per frame (was ~4000), zero LatLng allocs,
+        // batched fills grouped by color+opacity bucket, in-place viewport cull.
         function drawParticles() {{
             resizeCanvas();
             const topLeft = map.containerPointToLayerPoint([0, 0]);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            document.getElementById('active-count').textContent = particles.length;
-            
-            const bounds = map.getBounds();
+
             const liveLifespan = getSandboxLifespan();
             const liveSize = getSandboxSize();
             const stackOpacity = getSandboxStackOpacity();
             const fugitiveOpacity = getSandboxFugitiveOpacity();
-            
-            for (let i = 0; i < particles.length; i++) {{
-                const p = particles[i];
-                const ageMin = (playbackTime - p.birth) * 60;
-                if (ageMin < 0 || ageMin >= liveLifespan) continue;
-                
-                const ll = L.latLng(p.lat, p.lon);
-                if (!bounds.contains(ll)) continue;
-                
-                const pt = map.latLngToLayerPoint(ll);
-                const ageFade = Math.max(0, 1 - (ageMin / liveLifespan));
+
+            // One linear lat/lon→pixel calibration per frame (3 projections total)
+            const c = map.getCenter();
+            const pC  = map.latLngToLayerPoint(c);
+            const pLo = map.latLngToLayerPoint(L.latLng(c.lat, c.lng + 0.01));
+            const pLa = map.latLngToLayerPoint(L.latLng(c.lat + 0.01, c.lng));
+            const pxPerLon = (pLo.x - pC.x) / 0.01;
+            const pxPerLat = (pLa.y - pC.y) / 0.01;  // negative: north = up
+            const originX = pC.x - topLeft.x;
+            const originY = pC.y - topLeft.y;
+
+            // Numeric viewport bounds — no LatLng alloc per particle
+            const bounds = map.getBounds();
+            const margin = 0.05;
+            const bS = bounds.getSouth() - margin, bN = bounds.getNorth() + margin;
+            const bW = bounds.getWest()  - margin, bE = bounds.getEast()  + margin;
+
+            const activeList = (particleSource === 'hysplit') ? hysplitParticles : particles;
+            document.getElementById('active-count').textContent = activeList.length;
+
+            // Reset bucket arrays each frame (set length = 0, no realloc)
+            for (const bkt of _renderBuckets.values()) {{
+                bkt.pxArr.length = 0; bkt.pyArr.length = 0; bkt.rArr.length = 0;
+            }}
+
+            for (let i = 0; i < activeList.length; i++) {{
+                const p = activeList[i];
+
+                // Fast numeric viewport cull
+                if (p.lat < bS || p.lat > bN || p.lon < bW || p.lon > bE) continue;
+
+                // Age-based fade
+                let ageFade;
+                if (particleSource === 'hysplit') {{
+                    ageFade = Math.max(0, 1 - (p.age / liveLifespan));
+                }} else {{
+                    const ageMin = (playbackTime - p.birth) * 60;
+                    if (ageMin < 0 || ageMin >= liveLifespan) continue;
+                    ageFade = Math.max(0, 1 - (ageMin / liveLifespan));
+                }}
                 if (ageFade <= 0.01) continue;
 
-                // Per-type opacity ceiling from sandbox sliders
                 const typeOpacityCap = (p.type === 'fugitive') ? fugitiveOpacity : stackOpacity;
-                const opacity = ageFade * typeOpacityCap;
-                
-                const baseR = liveSize;  // dynamic from size slider
+                const opacity = ageFade * typeOpacityCap * (p.fadeMod !== undefined ? p.fadeMod : 1.0);
+                if (opacity <= 0.01) continue;
+
                 const hBonus = Math.min(1.2, p.ht / 250.0);
-                const radius = Math.min(liveSize * 2.5, (baseR + hBonus) * {EMISSION_MULTIPLIER});
-                
+                const radius = Math.max(0.5, Math.min(liveSize * 2.5, (liveSize + hBonus) * {EMISSION_MULTIPLIER}));
+
                 const jx = (jHash(i, p.fac) - 0.5) * 2.5;
                 const jy = (jHash(i + 7919, p.fac) - 0.5) * 2.5;
-                const px = pt.x - topLeft.x + jx;
-                const py = pt.y - topLeft.y + jy;
-                
+                const px = originX + (p.lon - c.lng) * pxPerLon + jx;
+                const py = originY + (p.lat - c.lat) * pxPerLat + jy;
+
+                // Bucket key: color + quantized opacity (5% steps) + type
+                const alphaBucket = Math.round(opacity * 20);
+                const bktKey = p.col + '|' + alphaBucket + '|' + p.type;
+                let bkt = _renderBuckets.get(bktKey);
+                if (!bkt) {{
+                    const rgb = getHexRgb(p.col);
+                    bkt = {{ rgb, alpha: alphaBucket / 20, isStack: p.type === 'stack',
+                            pxArr: [], pyArr: [], rArr: [] }};
+                    _renderBuckets.set(bktKey, bkt);
+                }}
+                bkt.pxArr.push(px); bkt.pyArr.push(py); bkt.rArr.push(radius);
+            }}
+
+            // Batch fill pass: one fillStyle + one path + one fill() per non-empty bucket
+            for (const bkt of _renderBuckets.values()) {{
+                if (bkt.pxArr.length === 0) continue;
+                const {{r, g, b}} = bkt.rgb;
+                ctx.fillStyle = `rgba(${{r}},${{g}},${{b}},${{bkt.alpha.toFixed(2)}})`;
                 ctx.beginPath();
-                ctx.arc(px, py, radius, 0, 6.2832);
-                ctx.fillStyle = hexToRgbA(p.col, opacity);
+                for (let j = 0; j < bkt.pxArr.length; j++)
+                    ctx.arc(bkt.pxArr[j], bkt.pyArr[j], bkt.rArr[j], 0, 6.2832);
                 ctx.fill();
-                
+            }}
+
+            // Glow halo pass: stack particles only, alpha * 0.17, radius * 2
+            for (const bkt of _renderBuckets.values()) {{
+                if (bkt.pxArr.length === 0 || !bkt.isStack) continue;
+                const {{r, g, b}} = bkt.rgb;
+                ctx.fillStyle = `rgba(${{r}},${{g}},${{b}},${{(bkt.alpha * 0.17).toFixed(3)}})`;
                 ctx.beginPath();
-                ctx.arc(px, py, radius * 2, 0, 6.2832);
-                ctx.fillStyle = hexToRgbA(p.col, opacity * 0.17);
+                for (let j = 0; j < bkt.pxArr.length; j++)
+                    ctx.arc(bkt.pxArr[j], bkt.pyArr[j], bkt.rArr[j] * 2, 0, 6.2832);
                 ctx.fill();
             }}
         }}
@@ -3746,6 +4087,8 @@ class CalvertCityPlumeEngine:
             }}
             playbackTime = newTime;
             prevPlaybackTime = playbackTime;
+            // Refresh HYSPLIT particles on scrub
+            if (particleSource === 'hysplit') updateHysplitParticles(playbackTime);
             updateHUD();
             drawParticles();
         }});
@@ -3759,8 +4102,10 @@ class CalvertCityPlumeEngine:
             const mp = e.containerPoint;
             let hit = null;
             
-            for (let i = 0; i < particles.length; i++) {{
-                const p = particles[i];
+            // Query the active particle list (HYSPLIT or sandbox)
+            const queryList = (particleSource === 'hysplit') ? hysplitParticles : particles;
+            for (let i = 0; i < queryList.length; i++) {{
+                const p = queryList[i];
                 const pt = map.latLngToContainerPoint(L.latLng(p.lat, p.lon));
                 if (Math.hypot(pt.x - mp.x, pt.y - mp.y) < 8) {{
                     hit = p;
@@ -3772,8 +4117,11 @@ class CalvertCityPlumeEngine:
                 const fac = PLUME_DATA.facilities[hit.fac];
                 tooltipTitle.textContent = fac.name;
                 tooltipTitle.style.color = fac.color;
-                const ageMin = ((playbackTime - hit.birth) * 60).toFixed(0);
+                // For HYSPLIT particles, age comes directly from the field; for sandbox, calculate from birth
+                const ageMin = (particleSource === 'hysplit') ? hit.age.toFixed(0) : ((playbackTime - hit.birth) * 60).toFixed(0);
+                const sourceLabel = (particleSource === 'hysplit') ? '🛰️ HYSPLIT' : '⚗️ Sandbox';
                 tooltipBody.innerHTML = `
+                    <span style="font-size:10px;color:#6b7280;">` + sourceLabel + `</span><br/>
                     Chemical: <strong>` + hit.chem + `</strong><br/>
                     Type: <strong>` + hit.type.toUpperCase() + `</strong><br/>
                     Lat/Lon: <strong>` + hit.lat.toFixed(4) + `, ` + hit.lon.toFixed(4) + `</strong><br/>
@@ -3824,7 +4172,7 @@ class CalvertCityPlumeEngine:
                             
                             tooltipBody.innerHTML = `
                                 Lat/Lon: <strong>` + closestCell.lat.toFixed(4) + `, ` + closestCell.lon.toFixed(4) + `</strong><br/>
-                                Accumulated Mass: <strong>` + displayVal + ` mass units/m²</strong><br/>
+                                Accumulated Mass: <strong>` + displayVal + ` g/m²</strong><br/>
                                 Deposition Level: <strong style="color: ` + riskColor + `;">` + risk + `</strong>
                             `;
                             tooltip.style.left = (mp.x + 15) + "px";
@@ -3872,8 +4220,10 @@ class CalvertCityPlumeEngine:
         map.on('zoom', drawParticles);
         map.on('zoomend', () => {{
             if (showDeposition) {{
-                const currentHour = Math.floor(playbackTime);
-                renderDepositionHeatmap(currentHour);
+                // Force layer recreation so new zoom-based radius/blur opts are picked up
+                if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
+                lastDepUpdateTime = -999;
+                renderDepositionHeatmap(playbackTime);
             }}
         }});
         map.on('resize', () => {{
@@ -3887,7 +4237,8 @@ class CalvertCityPlumeEngine:
         let depositionHeatLayer = null;
         let showDeposition = document.getElementById('deposition-toggle').checked;
         let lastDepositionHour = -1;
-        
+        let lastDepUpdateTime = -999; // throttle sub-hour deposition updates
+
         // Custom warm gradient for the heatmap canvas
         // Creates a smooth yellow → orange → red → deep red gradient
         const depositionGradient = {{
@@ -3912,54 +4263,143 @@ class CalvertCityPlumeEngine:
             return {{ radius: 160, blur: 90 }};
         }}
 
-        function renderDepositionHeatmap(hourIndex) {{
-            // Remove the previous heat layer if it exists
-            if (depositionHeatLayer) {{
-                map.removeLayer(depositionHeatLayer);
-                depositionHeatLayer = null;
+        function renderDepositionHeatmap(fracTime) {{
+            if (!showDeposition) {{
+                if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
+                return;
             }}
-            if (!showDeposition) return;
-            
+
             const depGrid = PLUME_DATA.deposition_grid;
             if (!depGrid || !depGrid.hours || depGrid.max_val <= 0) return;
-            
-            const hi = Math.max(0, Math.min(depGrid.hours.length - 1, hourIndex));
-            const hourData = depGrid.hours[hi];
-            if (!hourData || !hourData.cells || hourData.cells.length === 0) return;
-            
+
+            // Blend between consecutive hourly snapshots for smooth continuous deposition growth
+            const h0 = Math.max(0, Math.min(depGrid.hours.length - 1, Math.floor(fracTime)));
+            const h1 = Math.min(depGrid.hours.length - 1, h0 + 1);
+            const alpha = fracTime - Math.floor(fracTime); // 0→1 blend factor within the hour
+
+            const hourData0 = depGrid.hours[h0];
+            const hourData1 = depGrid.hours[h1];
             const maxVal = depGrid.max_val;
-            
-            // Build heatmap data points: [lat, lon, intensity]
+
+            // Merge point intensities from h0 and h1 with linear blend
+            const pointMap = new Map();
+            if (hourData0 && hourData0.cells) {{
+                for (const cell of hourData0.cells) {{
+                    const key = `${{cell.lat}},${{cell.lon}}`;
+                    pointMap.set(key, {{ lat: cell.lat, lon: cell.lon, val: cell.val * (1 - alpha) }});
+                }}
+            }}
+            if (hourData1 && hourData1.cells && alpha > 0) {{
+                for (const cell of hourData1.cells) {{
+                    const key = `${{cell.lat}},${{cell.lon}}`;
+                    const ex = pointMap.get(key);
+                    if (ex) {{ ex.val += cell.val * alpha; }}
+                    else {{ pointMap.set(key, {{ lat: cell.lat, lon: cell.lon, val: cell.val * alpha }}); }}
+                }}
+            }}
+
             const heatPoints = [];
-            hourData.cells.forEach(cell => {{
-                const intensity = cell.val / maxVal;
-                if (intensity < 0.005) return;  // Skip negligible cells
-                heatPoints.push([cell.lat, cell.lon, intensity]);
-            }});
-            
-            if (heatPoints.length === 0) return;
-            
-            // Create smooth gaussian heatmap layer
+            for (const pt of pointMap.values()) {{
+                const intensity = pt.val / maxVal;
+                if (intensity >= 0.005) heatPoints.push([pt.lat, pt.lon, intensity]);
+            }}
+
+            if (heatPoints.length === 0) {{
+                if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
+                return;
+            }}
+
             const zoomOpts = getHeatmapOptionsForZoom(map.getZoom());
-            depositionHeatLayer = L.heatLayer(heatPoints, {{
-                radius: zoomOpts.radius,
-                blur: zoomOpts.blur,
-                maxZoom: 17,         // Max zoom at which points have full intensity
-                max: 1.0,            // Maximum point intensity
-                minOpacity: 0.08,    // Minimum opacity for the layer
-                gradient: depositionGradient
-            }}).addTo(map);
+            if (!depositionHeatLayer) {{
+                // Create layer on first call or after forced removal (e.g. zoom change)
+                depositionHeatLayer = L.heatLayer(heatPoints, {{
+                    radius: zoomOpts.radius,
+                    blur: zoomOpts.blur,
+                    maxZoom: 17,
+                    max: 1.0,
+                    minOpacity: 0.08,
+                    gradient: depositionGradient
+                }}).addTo(map);
+            }} else {{
+                // Update data in-place — far faster than destroy/recreate
+                depositionHeatLayer.setLatLngs(heatPoints);
+                depositionHeatLayer.redraw();
+            }}
         }}
         
         // Deposition toggle event handler
         document.getElementById('deposition-toggle').addEventListener('change', (e) => {{
             showDeposition = e.target.checked;
             document.getElementById('deposition-legend').style.display = showDeposition ? 'block' : 'none';
-            lastDepositionHour = -1;  // Force re-render
-            const currentHour = Math.floor(playbackTime);
-            renderDepositionHeatmap(currentHour);
+            
+            const depSourceContainer = document.getElementById('deposition-source-container');
+            if (depSourceContainer) {{
+                depSourceContainer.style.display = showDeposition ? 'block' : 'none';
+            }}
+            
+            lastDepositionHour = -1;  // kept for compat
+            lastDepUpdateTime = -999;
+            if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
+            renderDepositionHeatmap(playbackTime);
         }});
-        
+
+        function updateDepositionSourceSelect() {{
+            const selectEl = document.getElementById('deposition-source-select');
+            if (!selectEl) return;
+            
+            // Save currently selected value
+            const currentVal = selectEl.value;
+            
+            // Clear current options
+            selectEl.innerHTML = '';
+            
+            // HYSPLIT option
+            const hasHysplit = !!(PLUME_DATA && PLUME_DATA.hysplit_deposition_grid);
+            const hysplitOpt = document.createElement('option');
+            hysplitOpt.value = 'hysplit';
+            hysplitOpt.textContent = 'HYSPLIT (High-fidelity)';
+            if (!hasHysplit) {{
+                hysplitOpt.disabled = true;
+                hysplitOpt.textContent += ' - Not Available';
+            }}
+            selectEl.appendChild(hysplitOpt);
+            
+            // Sandbox option
+            const sandboxOpt = document.createElement('option');
+            sandboxOpt.value = 'sandbox';
+            sandboxOpt.textContent = 'Simulation Sandbox (Real-time)';
+            selectEl.appendChild(sandboxOpt);
+            
+            // Default to sandbox for smooth continuous emission from point sources.
+            // HYSPLIT option remains available for exact trajectory playback.
+            if (currentVal && currentVal !== '') {{
+                selectEl.value = currentVal; // preserve user's previous choice
+            }} else {{
+                selectEl.value = 'sandbox';
+            }}
+        }}
+
+        // Listen for deposition source changes
+        // Also switch particle source to match deposition source for visual consistency
+        document.getElementById('deposition-source-select').addEventListener('change', () => {{
+            const srcVal = document.getElementById('deposition-source-select').value;
+            if (srcVal === 'hysplit') {{
+                particleSource = 'hysplit';
+                particles = []; // clear sandbox particles
+                updateHysplitParticles(playbackTime);
+                // HYSPLIT deposition grid is pre-calculated; just switch pointer
+                recalculateDeposition();
+            }} else {{
+                particleSource = 'sandbox';
+                hysplitParticles = []; // clear HYSPLIT particles
+                recalculateDeposition();
+            }}
+            lastDepositionHour = -1;  // kept for compat
+            lastDepUpdateTime = -999;
+            if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
+            renderDepositionHeatmap(playbackTime);
+        }});
+
         // Main animation loop
         let lastTimestamp = null;
         
@@ -3976,24 +4416,28 @@ class CalvertCityPlumeEngine:
                 if (playbackTime > 24.0) {{
                     playbackTime = 0.0;
                     particles = [];
+                    hysplitParticles = [];
                     lastSpawnTime = -999;
                 }}
                 
-                if (playbackTime - lastSpawnTime >= SPAWN_INTERVAL) {{
-                    spawnBatch();
-                    lastSpawnTime = playbackTime;
+                if (particleSource === 'hysplit') {{
+                    // ── HYSPLIT mode: interpolate pre-computed trajectories ──
+                    // This is CPU-cheap: no physics, just lerping stored coordinates.
+                    updateHysplitParticles(playbackTime);
+                }} else {{
+                    // ── Sandbox mode: run real-time physics simulation ──
+                    spawnBatch(dtHours);
+                    advect(dtHours);
                 }}
-                
-                advect(dtHours);
+
                 prevPlaybackTime = playbackTime;
-                
                 updateHUD();
-                
-                // Update deposition heatmap only when the integer hour changes (performance)
-                const currentHour = Math.floor(playbackTime);
-                if (showDeposition && currentHour !== lastDepositionHour) {{
-                    lastDepositionHour = currentHour;
-                    renderDepositionHeatmap(currentHour);
+
+                // Update deposition heatmap with sub-hour blending (throttled: max once per ~0.1 sim-hours)
+                if (showDeposition && Math.abs(playbackTime - lastDepUpdateTime) >= 0.1) {{
+                    lastDepUpdateTime = playbackTime;
+                    lastDepositionHour = Math.floor(playbackTime); // keep compat
+                    renderDepositionHeatmap(playbackTime);
                 }}
             }}
             
@@ -4001,9 +4445,20 @@ class CalvertCityPlumeEngine:
             requestAnimationFrame(tick);
         }}
         
-        // Initialize client-side deposition grid on page load
-        // (must be after constants like maxFacLbs, BASE_SPAWN_COUNT, etc. are defined)
-        recalculateDeposition();
+        // Initialize on page load.
+        // Default to sandbox mode so particles emit continuously from point sources.
+        // HYSPLIT particles are available via the deposition-source-select dropdown.
+        updateDepositionSourceSelect();
+        const _hasHysplitData = !!(PLUME_DATA && PLUME_DATA.particles && Object.keys(PLUME_DATA.particles).length > 0);
+        const _hasHysplitDep = !!(PLUME_DATA && PLUME_DATA.hysplit_deposition_grid);
+        // Always start in sandbox mode for smooth point-source emission.
+        particleSource = 'sandbox';
+        if (_hasHysplitDep) {{
+            // Use HYSPLIT deposition grid for accurate ground accumulation
+            PLUME_DATA.deposition_grid = PLUME_DATA.hysplit_deposition_grid;
+        }} else {{
+            recalculateDeposition();
+        }}
 
         // Boot
         requestAnimationFrame(tick);
@@ -4072,34 +4527,38 @@ if __name__ == "__main__":
             print("\n--regen-html flag detected. Skipping all simulation steps.")
 
         elif has_existing_html and len(existing_run_dirs) > 0:
-            # Interactive prompt: existing data found
-            print("\n" + "=" * 64)
-            print("  EXISTING SIMULATION DATA DETECTED")
-            print("=" * 64)
-            print(f"  HTML visualization : {existing_html_path}")
-            print(f"  Run directories    : {len(existing_run_dirs)} facility folders found")
-            print(f"  Simulation dates   : {START_DATE} to {END_DATE} ({len(date_list)} day(s))")
-            print()
-            print("  The full simulation pipeline (weather download, HYSPLIT,")
-            print("  EPA monitor processing) can take a very long time.")
-            print()
-            print("  If you're only making UI/HUD changes, you can skip the")
-            print("  simulation and just regenerate the HTML from existing data.")
-            print("=" * 64)
-            print()
+            if not sys.stdin.isatty():
+                print("\nNon-interactive environment detected. Automatically re-running full simulation.")
+                skip_simulation = False
+            else:
+                # Interactive prompt: existing data found
+                print("\n" + "=" * 64)
+                print("  EXISTING SIMULATION DATA DETECTED")
+                print("=" * 64)
+                print(f"  HTML visualization : {existing_html_path}")
+                print(f"  Run directories    : {len(existing_run_dirs)} facility folders found")
+                print(f"  Simulation dates   : {START_DATE} to {END_DATE} ({len(date_list)} day(s))")
+                print()
+                print("  The full simulation pipeline (weather download, HYSPLIT,")
+                print("  EPA monitor processing) can take a very long time.")
+                print()
+                print("  If you're only making UI/HUD changes, you can skip the")
+                print("  simulation and just regenerate the HTML from existing data.")
+                print("=" * 64)
+                print()
 
-            while True:
-                answer = input("  Re-run full simulation? [y/N]: ").strip().lower()
-                if answer in ("", "n", "no"):
-                    skip_simulation = True
-                    print("\n  → Skipping simulation. Regenerating HTML only.\n")
-                    break
-                elif answer in ("y", "yes"):
-                    skip_simulation = False
-                    print("\n  → Running full simulation pipeline.\n")
-                    break
-                else:
-                    print("  Please enter 'y' or 'n'.")
+                while True:
+                    answer = input("  Re-run full simulation? [y/N]: ").strip().lower()
+                    if answer in ("", "n", "no"):
+                        skip_simulation = True
+                        print("\n  → Skipping simulation. Regenerating HTML only.\n")
+                        break
+                    elif answer in ("y", "yes"):
+                        skip_simulation = False
+                        print("\n  → Running full simulation pipeline.\n")
+                        break
+                    else:
+                        print("  Please enter 'y' or 'n'.")
 
         if skip_simulation:
             # ── Extract embedded JSON archive from existing index.html ──
