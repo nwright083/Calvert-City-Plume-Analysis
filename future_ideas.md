@@ -7,6 +7,32 @@ This document serves as a living roadmap of future ideas, improvements, and bug 
 
 ## 1. Quick Fixes & UI Enhancements
 
+### ✅ Fix Canvas Triangulation Artifact (RESOLVED — June 23, 2026)
+* **Status**: ✅ Fixed
+* Canvas batch-fill was missing `ctx.moveTo()` before each `ctx.arc()`, causing lines between arc start-points that filled as large translucent triangles across the map. Fixed by adding `ctx.moveTo(x + r, y)` in `drawParticles()` in both engines.
+
+### ✅ Physics-Coupled Live Deposition (RESOLVED — June 23, 2026)
+* **Status**: ✅ Fixed
+* The dashboard previously ran three disconnected systems: (1) a cumulative-presence heatmap (not real deposition), (2) an unused batch deposition precompute, and (3) timer-culled dots. Unified into one: particles carry `mass: 1.0`, lose mass via dry deposition velocity `vd` when near-surface (ht < 30m), and the deposited mass accumulates into a live `liveDepGrid` Map that directly drives the heatmap. Lifespan is now emergent from chemistry — high-`vd` chemicals settle near the source, low-`vd` ones travel far.
+* **Tuning knobs**: `DEP_MASS_FLOOR = 0.05` (when particle is "spent"), `SAFETY_MAX_AGE = 720` min (anti-runaway backstop), `fraction` cap `0.15` in `advect()` (controls global settle speed), `SPREAD_KICK = 1.2` (fan-out vs deposition footprint).
+
+### ✅ Particles Stall at Sources After ~4–5 Hours (RESOLVED — June 23, 2026)
+* **Status**: ✅ Fixed
+* Sandbox particles were culled at `MAX_PARTICLE_AGE_MINUTES = 120` (HYSPLIT's `khmax`), so the live plume only ever extended 2 hours of travel from the source. Fixed by introducing a separate `SANDBOX_LIFESPAN_MINUTES = 360` constant (JS only, does not affect HYSPLIT), widening the slider to 60–1440 min, and adding an inverse `lifespanScale = 120 / getSandboxLifespan()` factor to `spawnBatch()` so the total particle budget stays flat regardless of lifespan setting.
+
+### ✅ Deposition Heatmap Untetehers During Pan (RESOLVED — June 23, 2026)
+* **Status**: ✅ Fixed
+* `Leaflet.heat` only repositions on `moveend`. Added a `map.on('move', ...)` handler that calls `depositionHeatLayer._reset()` on every move tick, mirroring the existing particle canvas behavior.
+
+### ✅ Intermittent Lag at Fast Playback (RESOLVED — June 23, 2026)
+* **Status**: ✅ Fixed
+* Deposition re-render was throttled by sim-time (0.1 sim-hours), which at 60 Hours/Min triggered ~10 full heatmap rebuilds/sec as the cumulative deposition grid grew large late in the day. Replaced with a real-time throttle: `performance.now() - lastDepRenderMs >= 120` caps rebuilds at ~8/sec regardless of playback speed.
+
+### ✅ Sandbox Coverage Mismatch vs HYSPLIT Deposition (RESOLVED — June 23, 2026)
+* **Status**: ✅ Fixed
+* Sandbox particles were too narrow (old coarse 10×10 median-only wind grid + 0.10°/hr clamp). Now: wind grid is 20×20 with IQR-based spread (`sLat`/`sLon`) exported per cell from HYSPLIT particle statistics. JS `advect()` uses `spreadLat = max(ageTurb, sLat * SPREAD_KICK)` so particles fan out to fill the HYSPLIT deposition footprint.
+* **Tuning knob**: `SPREAD_KICK = 1.2` constant in-line in `advect()` and `recalculateDeposition()`. Increase if particles are too narrow, decrease if too wide vs the deposition heatmap.
+
 ### 🟢 Fix Industrial Point Sources Dropdown Scrolling (Bug)
 * **Status**: 🔴 Not Implemented (Bug)
 * **Difficulty**: Easy
@@ -87,15 +113,20 @@ This document serves as a living roadmap of future ideas, improvements, and bug 
   * Model elevated stack releases as point sources and ground-level fugitive leaks as area sources in the HYSPLIT run configurations.
 
 ### 🟢 Chemical-Specific Particle Deposition (Dry/Wet Scavenging)
-* **Status**: 🟢 Implemented (Mac SIGFPE Workaround: Offline Python Particle Binning)
+* **Status**: 🟢 Implemented (Mac Workaround: Offline Python Particle Binning + Sandbox Live Physics)
 * **Difficulty**: Hard
 * **Description**: Heavy molecules or water-soluble gases deposit out of the plume. Due to a Mac-specific HYSPLIT concentration grid calculation crash (SIGFPE), the simulation runs HYSPLIT in stable particle-only mode and performs chemical-specific deposition grid calculation offline in Python.
-* **Implementation**: We define dummy concentration grid sampling times in the `CONTROL` file to bypass the HYSPLIT grid routine. During post-processing, the engine parses hourly particle dumps from `PAR_GIS.txt`. Low-level particles (height <= 100m) are binned into 0.02-degree grid cells. The surface deposition mass is accumulated by weighting each particle's contribution by its parent facility's chemical emissions and deposition velocities ($V_d$), with linear height-based scaling. Henry's Law constants ($H$) are exported to the frontend to document solubility.
-
+* **Implementation**: 
+  - *Offline (Python)*: We define dummy concentration grid sampling times in the `CONTROL` file to bypass the HYSPLIT grid routine. During post-processing, the engine parses hourly particle dumps from `PAR_GIS.txt`. Low-level particles (height <= 100m) are binned into 0.02-degree grid cells. The surface deposition mass is accumulated by weighting each particle's contribution by its parent facility's chemical emissions and deposition velocities ($V_d$), with linear height-based scaling. Henry's Law constants ($H$) are exported to the frontend to document solubility.
+  - *Online (JS Sandbox)*: Particles carry `mass: 1.0` at spawn. Near-surface particles (ht < 30m) lose mass each frame proportional to their chemical's dry deposition velocity ($V_d$). Once mass drops below `DEP_MASS_FLOOR` (0.05), they are culled.
+  
 ### 🟢 Soil & Water Accumulation Heatmaps (Deposition Mapping)
-* **Status**: 🟢 Implemented (Offline Python Binned Heatmap)
+* **Status**: 🟢 Implemented (Offline Binned Heatmap + Sandbox Live Accumulator)
 * **Difficulty**: Hard
-* **Description**: Trace deposition over time to show chemical buildup. The deposition heatmap displays the accumulated surface deposition calculated offline by binning low-level particles, corrected to units of `g/m²`. Tooltips display molecular weight, dry deposition velocity ($V_d$), and solubility/Henry's Law constant ($H$).
+* **Description**: Trace deposition over time to show chemical buildup. The deposition heatmap displays the accumulated surface deposition calculated offline (HYSPLIT mode) or online (Sandbox mode), corrected to units of `g/m²`.
+* **Implementation**:
+  - *HYSPLIT mode*: Displays the offline precomputed binned grid.
+  - *Sandbox mode*: Accumulates deposited mass from active particles into `liveDepGrid` in real-time. Features a time-progressive gamma normalization (`DEP_GAMMA = 0.5`) to scale and lift faint distant deposition cell intensities so the broad plume footprint remains visible during playback. Tooltips support live queries of both HYSPLIT and sandbox deposition cells.
 
 ---
 

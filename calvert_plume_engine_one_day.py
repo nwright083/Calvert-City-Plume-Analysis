@@ -121,6 +121,7 @@ RELEASE_HEIGHT_METERS = 15  # Starting vertical height in meters inside the HYSP
 # --- RENDERING & WEB VISUALIZATION CONTROLS ---
 PARTICLES_PER_UNIT_EMISSION = 50  # Density multiplier for visual stream counts
 MAX_PARTICLE_AGE_MINUTES = 120  # Lifespan of particle on canvas before complete opacity fade
+SANDBOX_LIFESPAN_MINUTES = 360  # JS live-particle lifespan (decoupled from HYSPLIT khmax)
 BASE_PARTICLE_RADIUS_PIXELS = 2.5  # Drawing size of individual dots on the map canvas
 MAP_ZOOM_LEVEL = 12  # Default Leaflet initial zoom view setting
 
@@ -1623,16 +1624,25 @@ class CalvertCityPlumeEngine:
                     
         # Extract per-hour wind grids from particle displacements
         # Each grid is a 2D array of size GRID_SIZE x GRID_SIZE.
-        GRID_SIZE = 10
+        # Each cell stores median displacement (dLat/dLon) AND IQR-based spread (sLat/sLon)
+        # so the JS sandbox can fan particles out to match real HYSPLIT dispersion width.
+        GRID_SIZE = 20
         grid_span = float(WEATHER_BOX_RADIUS_KM) / 111.0
         lat_min = MAP_CENTER[0] - grid_span
         lat_max = MAP_CENTER[0] + grid_span
         lon_min = MAP_CENTER[1] - grid_span
         lon_max = MAP_CENTER[1] + grid_span
-        
+
         lat_span = lat_max - lat_min
         lon_span = lon_max - lon_min
-        
+
+        def _iqr_half(vals_sorted):
+            """Half the interquartile range as a spread estimate."""
+            n = len(vals_sorted)
+            if n < 4:
+                return 0.0
+            return (vals_sorted[3 * n // 4] - vals_sorted[n // 4]) / 2.0
+
         def build_wind_grid_for_filter(height_filter_fn, label: str) -> list:
             grid_list = []
             for hour_idx in range(24):
@@ -1640,10 +1650,12 @@ class CalvertCityPlumeEngine:
                 nxt = timeline[hour_idx + 1] if hour_idx + 1 <= 24 else []
                 # To keep trajectory references consistent, match target particles in the next hour
                 nxt_filtered = [p for p in nxt if height_filter_fn(p["height"])]
-                
-                # Compute global median displacement for this hour as a fallback
+
+                # Compute global median displacement and IQR spread for this hour as a fallback
                 global_dlat = 0.0
                 global_dlon = 0.0
+                global_slat = 0.0
+                global_slon = 0.0
                 next_map = {}
                 if curr and nxt_filtered:
                     next_map = {(p["facility"], p["id"]): p for p in nxt_filtered}
@@ -1661,12 +1673,18 @@ class CalvertCityPlumeEngine:
                     if all_dlats:
                         all_dlats.sort()
                         all_dlons.sort()
-                        global_dlat = all_dlats[len(all_dlats) // 2]
-                        global_dlon = all_dlons[len(all_dlons) // 2]
-                
-                # Initialize empty grid with global median fallback
-                hour_grid = [[{"dLat": round(global_dlat, 6), "dLon": round(global_dlon, 6)} for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
-                
+                        n = len(all_dlats)
+                        global_dlat = all_dlats[n // 2]
+                        global_dlon = all_dlons[n // 2]
+                        global_slat = _iqr_half(all_dlats)
+                        global_slon = _iqr_half(all_dlons)
+
+                # Initialize empty grid with global median + spread fallback
+                hour_grid = [[{
+                    "dLat": round(global_dlat, 6), "dLon": round(global_dlon, 6),
+                    "sLat": round(global_slat, 6), "sLon": round(global_slon, 6)
+                } for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
+
                 # Group displacements by cell
                 cell_displacements = {} # (r, c) -> {"dlats": [], "dlons": []}
                 if curr and nxt_filtered:
@@ -1683,26 +1701,32 @@ class CalvertCityPlumeEngine:
                                 # Clamp indices to grid boundaries
                                 r = max(0, min(GRID_SIZE - 1, r))
                                 c = max(0, min(GRID_SIZE - 1, c))
-                                
+
                                 cell_key = (r, c)
                                 if cell_key not in cell_displacements:
                                     cell_displacements[cell_key] = {"dlats": [], "dlons": []}
                                 cell_displacements[cell_key]["dlats"].append(dl)
                                 cell_displacements[cell_key]["dlons"].append(do_)
-                
-                # Compute median for each populated cell
+
+                # Compute median + IQR spread for each populated cell
                 for (r, c), data in cell_displacements.items():
                     dlats = sorted(data["dlats"])
                     dlons = sorted(data["dlons"])
-                    local_dlat = dlats[len(dlats) // 2]
-                    local_dlon = dlons[len(dlons) // 2]
+                    n = len(dlats)
+                    local_dlat = dlats[n // 2]
+                    local_dlon = dlons[n // 2]
+                    local_slat = _iqr_half(dlats) if n >= 4 else global_slat
+                    local_slon = _iqr_half(dlons) if n >= 4 else global_slon
                     hour_grid[r][c] = {
-                        "dLat": round(local_dlat, 6),
-                        "dLon": round(local_dlon, 6)
+                        "dLat": round(local_dlat, 6), "dLon": round(local_dlon, 6),
+                        "sLat": round(local_slat, 6), "sLon": round(local_slon, 6),
                     }
-                
-                # Run IDW interpolation for unpopulated cells
-                smoothed_grid = [[{"dLat": hour_grid[r][c]["dLat"], "dLon": hour_grid[r][c]["dLon"]} for c in range(GRID_SIZE)] for r in range(GRID_SIZE)]
+
+                # Run IDW interpolation for unpopulated cells (median + spread)
+                smoothed_grid = [[{
+                    "dLat": hour_grid[r][c]["dLat"], "dLon": hour_grid[r][c]["dLon"],
+                    "sLat": hour_grid[r][c]["sLat"], "sLon": hour_grid[r][c]["sLon"],
+                } for c in range(GRID_SIZE)] for r in range(GRID_SIZE)]
                 for r in range(GRID_SIZE):
                     for c in range(GRID_SIZE):
                         if (r, c) not in cell_displacements:
@@ -1710,24 +1734,30 @@ class CalvertCityPlumeEngine:
                             weights_sum = 0.0
                             dlat_sum = 0.0
                             dlon_sum = 0.0
+                            slat_sum = 0.0
+                            slon_sum = 0.0
                             for (pr, pc), pdata in cell_displacements.items():
                                 dist = math.sqrt((r - pr)**2 + (c - pc)**2)
                                 if dist == 0:
                                     continue
                                 w = 1.0 / (dist**2)
                                 weights_sum += w
-                                
                                 p_dlats = sorted(pdata["dlats"])
                                 p_dlons = sorted(pdata["dlons"])
-                                dlat_sum += p_dlats[len(p_dlats) // 2] * w
-                                dlon_sum += p_dlons[len(p_dlons) // 2] * w
-                            
+                                pn = len(p_dlats)
+                                dlat_sum += p_dlats[pn // 2] * w
+                                dlon_sum += p_dlons[pn // 2] * w
+                                slat_sum += (_iqr_half(p_dlats) if pn >= 4 else global_slat) * w
+                                slon_sum += (_iqr_half(p_dlons) if pn >= 4 else global_slon) * w
+
                             if weights_sum > 0:
                                 smoothed_grid[r][c] = {
                                     "dLat": round(dlat_sum / weights_sum, 6),
-                                    "dLon": round(dlon_sum / weights_sum, 6)
+                                    "dLon": round(dlon_sum / weights_sum, 6),
+                                    "sLat": round(slat_sum / weights_sum, 6),
+                                    "sLon": round(slon_sum / weights_sum, 6),
                                 }
-                
+
                 num_cells_filled = len(cell_displacements)
                 print(f"  [{label}] Hour {hour_idx:2d}→{hour_idx+1:2d}: global dLat={global_dlat:+.5f}° dLon={global_dlon:+.5f}°, {num_cells_filled}/{GRID_SIZE*GRID_SIZE} cells populated.")
                 grid_list.append(smoothed_grid)
@@ -2594,8 +2624,16 @@ class CalvertCityPlumeEngine:
                     </select>
                 </div>
 
-                <!-- ══ Deposition Heatmap Toggle ══ -->
+                <!-- ══ Particles Toggle ══ -->
                 <div style="margin-top: 12px; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06);">
+                    <label id="particles-toggle-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase;">
+                        <input type="checkbox" id="particles-toggle" checked style="accent-color: #10b981; width: 14px; height: 14px; cursor: pointer;">
+                        <span>💨 Show Particles</span>
+                    </label>
+                </div>
+
+                <!-- ══ Deposition Heatmap Toggle ══ -->
+                <div style="margin-top: 0; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06);">
                     <label id="deposition-toggle-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase;">
                         <input type="checkbox" id="deposition-toggle" style="accent-color: #f59e0b; width: 14px; height: 14px; cursor: pointer;">
                         <span>🌡️ Deposition Heatmap</span>
@@ -2636,15 +2674,6 @@ class CalvertCityPlumeEngine:
                         </div>
 
                         <!-- Particle Lifespan -->
-                        <div class="sandbox-group">
-                            <div class="sandbox-label">
-                                <span>PARTICLE LIFESPAN</span>
-                                <span class="sandbox-val" id="lifespanVal">{MAX_PARTICLE_AGE_MINUTES} min</span>
-                            </div>
-                            <input type="range" class="sandbox-slider" id="lifespanSlider"
-                                   min="30" max="240" step="10" value="{MAX_PARTICLE_AGE_MINUTES}">
-                        </div>
-
                         <!-- Particle Size -->
                         <div class="sandbox-group">
                             <div class="sandbox-label">
@@ -3378,11 +3407,12 @@ class CalvertCityPlumeEngine:
         // CLIENT-SIDE CONTINUOUS PARTICLE SYSTEM
         // ================================================================
         
+        // Physics constants for emergent particle lifespan (mass-based deposition)
+        const DEP_MASS_FLOOR = 0.05;   // particle vanishes when remaining mass fraction drops to this
+        const SAFETY_MAX_AGE = 720;    // backstop (minutes): prevents calm-air particles from living forever
+        const DEP_GAMMA = 0.5;         // sqrt lifts faint distant cells
+
         // Sandbox slider live-read helpers (replace hardcoded constants)
-        function getSandboxLifespan() {{
-            const el = document.getElementById('lifespanSlider');
-            return el ? parseFloat(el.value) : {MAX_PARTICLE_AGE_MINUTES};
-        }}
         function getSandboxSize() {{
             const el = document.getElementById('sizeSlider');
             return el ? parseFloat(el.value) : {BASE_PARTICLE_RADIUS_PIXELS};
@@ -3406,7 +3436,7 @@ class CalvertCityPlumeEngine:
         const TURB_BASE = 0.0025;               // Base turbulent diffusion (deg/hr)
         const TURB_GROWTH = 0.0015;             // Extra diffusion per hour of age
         const TURB_MAX = 0.012;                 // Hard cap so aged particles don't swamp wind
-        const MAX_WIND_PER_HR = 0.10;           // Caps anomalous h2-3 NE spike; real winds are < this
+        const MAX_WIND_PER_HR = 0.18;           // Raised from 0.10 to allow real HYSPLIT transport distances
         
         // Find max emissions for proportional spawning
         const maxFacLbs = Math.max(...PLUME_DATA.facilities.map(f => f.total_lbs || 1), 1);
@@ -3511,7 +3541,6 @@ class CalvertCityPlumeEngine:
             // Wire each slider to its value display
             const wirings = [
                 {{ slider: 'densitySlider',         display: 'densityVal',         fmt: v => v.toFixed(1) + '×' }},
-                {{ slider: 'lifespanSlider',        display: 'lifespanVal',        fmt: v => v.toFixed(0) + ' min' }},
                 {{ slider: 'sizeSlider',            display: 'sizeVal',            fmt: v => v.toFixed(1) + 'px' }},
                 {{ slider: 'stackOpacitySlider',    display: 'stackOpacityVal',    fmt: v => v.toFixed(2) }},
                 {{ slider: 'fugitiveOpacitySlider', display: 'fugitiveOpacityVal', fmt: v => v.toFixed(2) }}
@@ -3592,8 +3621,13 @@ class CalvertCityPlumeEngine:
                           ty  * ((1 - tx) * v01.dLat + tx * v11.dLat);
             const dLon = (1 - ty) * ((1 - tx) * v00.dLon + tx * v10.dLon) +
                           ty  * ((1 - tx) * v01.dLon + tx * v11.dLon);
+            // IQR-based spread from HYSPLIT particle statistics
+            const sLat = (1 - ty) * ((1 - tx) * (v00.sLat||0) + tx * (v10.sLat||0)) +
+                          ty  * ((1 - tx) * (v01.sLat||0) + tx * (v11.sLat||0));
+            const sLon = (1 - ty) * ((1 - tx) * (v00.sLon||0) + tx * (v10.sLon||0)) +
+                          ty  * ((1 - tx) * (v01.sLon||0) + tx * (v11.sLon||0));
 
-            return {{ dLat, dLon }};
+            return {{ dLat, dLon, sLat, sLon }};
         }}
 
         // Returns true when every cell in wind grid slice idx is zero (day-edge artifact hours 0,1,23).
@@ -3625,7 +3659,7 @@ class CalvertCityPlumeEngine:
             if (!wg) {{
                 wg = PLUME_DATA.wind_grid; // fallback for backwards compatibility
             }}
-            if (!wg || wg.length === 0) return {{dLat: 0, dLon: 0}};
+            if (!wg || wg.length === 0) return {{dLat: 0, dLon: 0, sLat: 0, sLon: 0}};
 
             const h  = Math.max(0, Math.min(wg.length - 2, Math.floor(time)));
             const hn = Math.min(wg.length - 1, h + 1);
@@ -3638,10 +3672,13 @@ class CalvertCityPlumeEngine:
 
             let dLat = w1.dLat + s * (w2.dLat - w1.dLat);
             let dLon = w1.dLon + s * (w2.dLon - w1.dLon);
+            // Blend HYSPLIT-derived spread (IQR half-range) alongside median displacement
+            const sLat = w1.sLat + s * (w2.sLat - w1.sLat);
+            const sLon = w1.sLon + s * (w2.sLon - w1.sLon);
             // Clamp magnitude to suppress anomalous spikes while preserving direction
             const mag = Math.hypot(dLat, dLon);
             if (mag > MAX_WIND_PER_HR) {{ const k = MAX_WIND_PER_HR / mag; dLat *= k; dLon *= k; }}
-            return {{ dLat, dLon }};
+            return {{ dLat, dLon, sLat, sLon }};
         }}
         
         // ── Spawn particles at all active facilities ──
@@ -3653,6 +3690,7 @@ class CalvertCityPlumeEngine:
             const densityMult = getSandboxDensity();  // live density slider
             // Scale spawn count to elapsed sim-time so rate is continuous, not bursty
             const rateScale = (dtHours !== undefined) ? dtHours / SPAWN_INTERVAL : 1.0;
+            // No lifespanScale: lifespan is now emergent from mass depletion; MAX_ACTIVE caps steady-state count
             
             PLUME_DATA.facilities.forEach((fac, idx) => {{
                 if (!activeFacilities[idx]) return;
@@ -3678,7 +3716,7 @@ class CalvertCityPlumeEngine:
                             const countFloat = ratio * BASE_SPAWN_COUNT * 1.5 * densityMult * rateScale;
                             let count = Math.floor(countFloat);
                             if (Math.random() < (countFloat - count)) count += 1;
-                            
+
                             for (let i = 0; i < count; i++) {{
                                 particles.push({{
                                     lat: fac.lat + (Math.random() - 0.5) * 0.0008,
@@ -3689,13 +3727,14 @@ class CalvertCityPlumeEngine:
                                     chem: c.chemical,
                                     col: fac.color,
                                     type: 'stack',
+                                    mass: 1.0,
                                     tLat: (Math.random() - 0.5) * 2,
                                     tLon: (Math.random() - 0.5) * 2
                                 }});
                             }}
                         }}
                     }}
-                    
+
                     // Fugitive Spawning
                     if (displayMode === 'combined' || displayMode === 'fugitive') {{
                         const fugitiveLbs = c.fugitive_lbs || 0;
@@ -3704,7 +3743,7 @@ class CalvertCityPlumeEngine:
                             const countFloat = ratio * BASE_SPAWN_COUNT * 1.5 * densityMult * rateScale;
                             let count = Math.floor(countFloat);
                             if (Math.random() < (countFloat - count)) count += 1;
-                            
+
                             for (let i = 0; i < count; i++) {{
                                 particles.push({{
                                     lat: fac.lat + (Math.random() - 0.5) * 0.0012,
@@ -3715,6 +3754,7 @@ class CalvertCityPlumeEngine:
                                     chem: c.chemical,
                                     col: fac.color,
                                     type: 'fugitive',
+                                    mass: 1.0,
                                     tLat: (Math.random() - 0.5) * 3,
                                     tLon: (Math.random() - 0.5) * 3
                                 }});
@@ -3735,7 +3775,7 @@ class CalvertCityPlumeEngine:
             let simParticles = [];
             const dt = 0.1;
             const stepsPerHour = 10;
-            const liveLifespan = getSandboxLifespan();
+            const liveLifespan = SAFETY_MAX_AGE;
             const displayMode = document.getElementById('display-mode-select').value;
             
             let seed = 42;
@@ -3827,11 +3867,14 @@ class CalvertCityPlumeEngine:
                         const baseTurb   = p.type === 'fugitive' ? TURB_BASE   * 1.5 : TURB_BASE;
                         const turbGrowth = p.type === 'fugitive' ? TURB_GROWTH * 1.5 : TURB_GROWTH;
                         const turbMax    = p.type === 'fugitive' ? TURB_MAX    * 1.5 : TURB_MAX;
-                        const turb = Math.min(turbMax, baseTurb + turbGrowth * ageH);
+                        const ageTurb = Math.min(turbMax, baseTurb + turbGrowth * ageH);
 
                         const wind = getWind(time, p.lat, p.lon, p.type);
-                        p.lat += (wind.dLat + p.tLat * turb + (random() - 0.5) * turb * 0.4) * dt;
-                        p.lon += (wind.dLon + p.tLon * turb + (random() - 0.5) * turb * 0.4) * dt;
+                        const SPREAD_KICK = 1.2;
+                        const spreadLat = Math.max(ageTurb, (wind.sLat || 0) * SPREAD_KICK);
+                        const spreadLon = Math.max(ageTurb, (wind.sLon || 0) * SPREAD_KICK);
+                        p.lat += (wind.dLat + p.tLat * spreadLat + (random() - 0.5) * spreadLat * 0.4) * dt;
+                        p.lon += (wind.dLon + p.tLon * spreadLon + (random() - 0.5) * spreadLon * 0.4) * dt;
                         
                         if (p.type === 'fugitive') {{
                             p.ht = Math.max(0, Math.min(10, p.ht + (random() - 0.5) * 1 * dt));
@@ -3897,30 +3940,60 @@ class CalvertCityPlumeEngine:
         }}
 
         // ── Advect all particles forward by dtHours ──
-        // Combined filter+advect in one pass to avoid per-frame .filter() array allocation.
+        // Cull condition is now mass-based (emergent lifespan) instead of a fixed timer.
+        // Near-surface particles (ht < 30m) lose mass each tick via dry deposition (Vd × mass).
+        // When mass < DEP_MASS_FLOOR the particle is considered fully deposited and removed.
+        // A SAFETY_MAX_AGE backstop prevents calm-air particles from accumulating indefinitely.
         function advect(dtHours) {{
             const displayMode = document.getElementById('display-mode-select').value;
-            const liveLifespan = getSandboxLifespan();
+            const dtSec = dtHours * 3600.0;
+            const grid_spacing = 0.002;
             let writeIdx = 0;
             for (let i = 0; i < particles.length; i++) {{
                 const p = particles[i];
-                const age = (playbackTime - p.birth) * 60;
+                const age = (playbackTime - p.birth) * 60; // minutes
                 const matchesMode = (displayMode === 'combined') || (displayMode === p.type);
-                if (!(age >= 0 && age < liveLifespan && activeFacilities[p.fac] && activeChemicals[p.fac][p.chem] && matchesMode)) continue;
+                // Cull: must be active, not past safety cap, and still have mass
+                if (!(age >= 0 && age < SAFETY_MAX_AGE && activeFacilities[p.fac] && activeChemicals[p.fac][p.chem] && matchesMode)) continue;
+                if (p.mass !== undefined && p.mass <= DEP_MASS_FLOOR) continue;
 
                 const ageH = playbackTime - p.birth;
                 const baseTurb   = p.type === 'fugitive' ? TURB_BASE   * 1.5 : TURB_BASE;
                 const turbGrowth = p.type === 'fugitive' ? TURB_GROWTH * 1.5 : TURB_GROWTH;
                 const turbMax    = p.type === 'fugitive' ? TURB_MAX    * 1.5 : TURB_MAX;
-                const turb = Math.min(turbMax, baseTurb + turbGrowth * ageH);
+                const ageTurb = Math.min(turbMax, baseTurb + turbGrowth * ageH);
                 const wind = getWind(playbackTime, p.lat, p.lon, p.type);
-                p.lat += (wind.dLat + p.tLat * turb + (Math.random() - 0.5) * turb * 0.4) * dtHours;
-                p.lon += (wind.dLon + p.tLon * turb + (Math.random() - 0.5) * turb * 0.4) * dtHours;
+                // HYSPLIT IQR spread drives fan-out; age-based turbulence is a floor for calm areas
+                const SPREAD_KICK = 1.2;
+                const spreadLat = Math.max(ageTurb, (wind.sLat || 0) * SPREAD_KICK);
+                const spreadLon = Math.max(ageTurb, (wind.sLon || 0) * SPREAD_KICK);
+                p.lat += (wind.dLat + p.tLat * spreadLat + (Math.random() - 0.5) * spreadLat * 0.4) * dtHours;
+                p.lon += (wind.dLon + p.tLon * spreadLon + (Math.random() - 0.5) * spreadLon * 0.4) * dtHours;
                 if (p.type === 'fugitive') {{
                     p.ht = Math.max(0, Math.min(10, p.ht + (Math.random() - 0.5) * 1 * dtHours));
                 }} else {{
                     p.ht = Math.max(0, p.ht + (Math.random() - 0.5) * 3 * dtHours);
                 }}
+
+                // Dry deposition: near-surface particles lose mass proportional to Vd (m/s)
+                if (p.mass !== undefined && p.ht < 30.0) {{
+                    const chemKey = p.chem.toUpperCase();
+                    const chemProp = PLUME_DATA.chemical_properties[chemKey] || {{vd: 0.003}};
+                    const vd = chemProp.vd || 0.003;
+                    const fraction = Math.min(0.15, (vd * dtSec) / 30.0);
+                    const dDep = p.mass * fraction;
+                    p.mass -= dDep;
+
+                    // Accumulate deposited mass into the live grid
+                    const cellLat = Math.round(p.lat / grid_spacing) * grid_spacing;
+                    const cellLon = Math.round(p.lon / grid_spacing) * grid_spacing;
+                    const cellKey = cellLat.toFixed(4) + ',' + cellLon.toFixed(4);
+                    const prev = liveDepGrid.get(cellKey) || 0.0;
+                    const next = prev + dDep;
+                    liveDepGrid.set(cellKey, next);
+                    if (next > liveDepMax) liveDepMax = next;
+                }}
+
                 particles[writeIdx++] = p;
             }}
             particles.length = writeIdx;
@@ -3952,8 +4025,8 @@ class CalvertCityPlumeEngine:
             resizeCanvas();
             const topLeft = map.containerPointToLayerPoint([0, 0]);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (!showParticles) return;
 
-            const liveLifespan = getSandboxLifespan();
             const liveSize = getSandboxSize();
             const stackOpacity = getSandboxStackOpacity();
             const fugitiveOpacity = getSandboxFugitiveOpacity();
@@ -3988,14 +4061,12 @@ class CalvertCityPlumeEngine:
                 // Fast numeric viewport cull
                 if (p.lat < bS || p.lat > bN || p.lon < bW || p.lon > bE) continue;
 
-                // Age-based fade
+                // Fade: sandbox uses remaining mass fraction; HYSPLIT uses age vs safety cap
                 let ageFade;
                 if (particleSource === 'hysplit') {{
-                    ageFade = Math.max(0, 1 - (p.age / liveLifespan));
+                    ageFade = Math.max(0, 1 - (p.age / SAFETY_MAX_AGE));
                 }} else {{
-                    const ageMin = (playbackTime - p.birth) * 60;
-                    if (ageMin < 0 || ageMin >= liveLifespan) continue;
-                    ageFade = Math.max(0, 1 - (ageMin / liveLifespan));
+                    ageFade = (p.mass !== undefined) ? Math.max(0, (p.mass - DEP_MASS_FLOOR) / (1.0 - DEP_MASS_FLOOR)) : 1.0;
                 }}
                 if (ageFade <= 0.01) continue;
 
@@ -4030,8 +4101,10 @@ class CalvertCityPlumeEngine:
                 const {{r, g, b}} = bkt.rgb;
                 ctx.fillStyle = `rgba(${{r}},${{g}},${{b}},${{bkt.alpha.toFixed(2)}})`;
                 ctx.beginPath();
-                for (let j = 0; j < bkt.pxArr.length; j++)
+                for (let j = 0; j < bkt.pxArr.length; j++) {{
+                    ctx.moveTo(bkt.pxArr[j] + bkt.rArr[j], bkt.pyArr[j]);
                     ctx.arc(bkt.pxArr[j], bkt.pyArr[j], bkt.rArr[j], 0, 6.2832);
+                }}
                 ctx.fill();
             }}
 
@@ -4041,8 +4114,10 @@ class CalvertCityPlumeEngine:
                 const {{r, g, b}} = bkt.rgb;
                 ctx.fillStyle = `rgba(${{r}},${{g}},${{b}},${{(bkt.alpha * 0.17).toFixed(3)}})`;
                 ctx.beginPath();
-                for (let j = 0; j < bkt.pxArr.length; j++)
+                for (let j = 0; j < bkt.pxArr.length; j++) {{
+                    ctx.moveTo(bkt.pxArr[j] + bkt.rArr[j] * 2, bkt.pyArr[j]);
                     ctx.arc(bkt.pxArr[j], bkt.pyArr[j], bkt.rArr[j] * 2, 0, 6.2832);
+                }}
                 ctx.fill();
             }}
         }}
@@ -4131,53 +4206,68 @@ class CalvertCityPlumeEngine:
                 tooltip.style.top = (mp.y + 15) + "px";
                 tooltip.style.display = 'block';
             }} else {{
-                const depGrid = PLUME_DATA.deposition_grid;
-                if (showDeposition && depGrid && depGrid.hours && depGrid.max_val > 0) {{
-                    const hi = Math.max(0, Math.min(depGrid.hours.length - 1, Math.floor(playbackTime)));
-                    const hourData = depGrid.hours[hi];
-                    if (hourData && hourData.cells && hourData.cells.length > 0) {{
-                        const grid_spacing = depGrid.grid_spacing || 0.002;
-                        const mouseLat = e.latlng.lat;
-                        const mouseLon = e.latlng.lng;
-                        
-                        let closestCell = null;
-                        let minDist = 0.0015; // Threshold in degrees (approx 150m) to register a hover
-                        
-                        for (let c = 0; c < hourData.cells.length; c++) {{
-                            const cell = hourData.cells[c];
-                            const dist = Math.hypot(cell.lat - mouseLat, cell.lon - mouseLon);
-                            if (dist < minDist) {{
-                                minDist = dist;
-                                closestCell = cell;
+                if (showDeposition && particleSource !== 'hysplit' && liveDepMax > 0) {{
+                    // Sandbox mode: query liveDepGrid directly
+                    const grid_spacing = 0.002;
+                    const mouseLat = e.latlng.lat;
+                    const mouseLon = e.latlng.lng;
+                    const cellLat = Math.round(mouseLat / grid_spacing) * grid_spacing;
+                    const cellLon = Math.round(mouseLon / grid_spacing) * grid_spacing;
+                    const cellKey = cellLat.toFixed(4) + ',' + cellLon.toFixed(4);
+                    const cellVal = liveDepGrid.get(cellKey);
+                    if (cellVal !== undefined && cellVal > 0) {{
+                        tooltipTitle.textContent = "🌡️ Surface Deposition";
+                        tooltipTitle.style.color = "#f59e0b";
+                        const timeProgress = Math.min(1.0, playbackTime / 24.0);
+                        const intensity = Math.min(1.0, Math.pow(cellVal / liveDepMax, DEP_GAMMA) * timeProgress);
+                        let risk = "Low"; let riskColor = "#22c55e";
+                        if (intensity >= 0.5) {{ risk = "High"; riskColor = "#ef4444"; }}
+                        else if (intensity >= 0.15) {{ risk = "Moderate"; riskColor = "#f59e0b"; }}
+                        const displayVal = cellVal >= 0.01 ? cellVal.toFixed(4) : cellVal.toExponential(3);
+                        tooltipBody.innerHTML = `
+                            Lat/Lon: <strong>` + cellLat.toFixed(4) + `, ` + cellLon.toFixed(4) + `</strong><br/>
+                            Accumulated Mass: <strong>` + displayVal + ` g/m²</strong><br/>
+                            Deposition Level: <strong style="color: ` + riskColor + `;">` + risk + `</strong>
+                        `;
+                        tooltip.style.left = (mp.x + 15) + "px";
+                        tooltip.style.top = (mp.y + 15) + "px";
+                        tooltip.style.display = 'block';
+                        return;
+                    }}
+                }}
+                if (showDeposition && particleSource === 'hysplit') {{
+                    const depGrid = PLUME_DATA.deposition_grid;
+                    if (depGrid && depGrid.hours && depGrid.max_val > 0) {{
+                        const hi = Math.max(0, Math.min(depGrid.hours.length - 1, Math.floor(playbackTime)));
+                        const hourData = depGrid.hours[hi];
+                        if (hourData && hourData.cells && hourData.cells.length > 0) {{
+                            const mouseLat = e.latlng.lat;
+                            const mouseLon = e.latlng.lng;
+                            let closestCell = null;
+                            let minDist = 0.0015;
+                            for (let c = 0; c < hourData.cells.length; c++) {{
+                                const cell = hourData.cells[c];
+                                const dist = Math.hypot(cell.lat - mouseLat, cell.lon - mouseLon);
+                                if (dist < minDist) {{ minDist = dist; closestCell = cell; }}
                             }}
-                        }}
-                        
-                        if (closestCell) {{
-                            tooltipTitle.textContent = "🌡️ Surface Deposition";
-                            tooltipTitle.style.color = "#f59e0b"; // Orange/gold
-                            
-                            const intensity = closestCell.val / depGrid.max_val;
-                            let risk = "Low";
-                            let riskColor = "#22c55e"; // Green
-                            if (intensity >= 0.5) {{
-                                risk = "High";
-                                riskColor = "#ef4444"; // Red
-                            }} else if (intensity >= 0.15) {{
-                                risk = "Moderate";
-                                riskColor = "#f59e0b"; // Orange
+                            if (closestCell) {{
+                                tooltipTitle.textContent = "🌡️ Surface Deposition";
+                                tooltipTitle.style.color = "#f59e0b";
+                                const intensity = closestCell.val / depGrid.max_val;
+                                let risk = "Low"; let riskColor = "#22c55e";
+                                if (intensity >= 0.5) {{ risk = "High"; riskColor = "#ef4444"; }}
+                                else if (intensity >= 0.15) {{ risk = "Moderate"; riskColor = "#f59e0b"; }}
+                                const displayVal = closestCell.val >= 0.01 ? closestCell.val.toFixed(4) : closestCell.val.toExponential(3);
+                                tooltipBody.innerHTML = `
+                                    Lat/Lon: <strong>` + closestCell.lat.toFixed(4) + `, ` + closestCell.lon.toFixed(4) + `</strong><br/>
+                                    Accumulated Mass: <strong>` + displayVal + ` g/m²</strong><br/>
+                                    Deposition Level: <strong style="color: ` + riskColor + `;">` + risk + `</strong>
+                                `;
+                                tooltip.style.left = (mp.x + 15) + "px";
+                                tooltip.style.top = (mp.y + 15) + "px";
+                                tooltip.style.display = 'block';
+                                return;
                             }}
-                            
-                            const displayVal = closestCell.val >= 0.01 ? closestCell.val.toFixed(4) : closestCell.val.toExponential(3);
-                            
-                            tooltipBody.innerHTML = `
-                                Lat/Lon: <strong>` + closestCell.lat.toFixed(4) + `, ` + closestCell.lon.toFixed(4) + `</strong><br/>
-                                Accumulated Mass: <strong>` + displayVal + ` g/m²</strong><br/>
-                                Deposition Level: <strong style="color: ` + riskColor + `;">` + risk + `</strong>
-                            `;
-                            tooltip.style.left = (mp.x + 15) + "px";
-                            tooltip.style.top = (mp.y + 15) + "px";
-                            tooltip.style.display = 'block';
-                            return;
                         }}
                     }}
                 }}
@@ -4210,12 +4300,19 @@ class CalvertCityPlumeEngine:
             prevPlaybackTime = 0.0;
             particles = [];
             lastSpawnTime = -999;
+            liveDepGrid = new Map();
+            liveDepMax = 0;
+            if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
             updateHUD();
             drawParticles();
         }});
 
         // Map redraws
         map.on('move', drawParticles);
+        map.on('move', () => {{
+            if (showDeposition && depositionHeatLayer && depositionHeatLayer._reset)
+                depositionHeatLayer._reset();
+        }});
         map.on('zoom', drawParticles);
         map.on('zoomend', () => {{
             if (showDeposition) {{
@@ -4234,9 +4331,13 @@ class CalvertCityPlumeEngine:
         // Renders HYSPLIT surface deposition (level 0) as colored grid cells.
         // Toggle on/off via the checkbox. Color scale: yellow → orange → red → deep red.
         let depositionHeatLayer = null;
+        let showParticles = document.getElementById('particles-toggle').checked;
         let showDeposition = document.getElementById('deposition-toggle').checked;
         let lastDepositionHour = -1;
         let lastDepUpdateTime = -999; // throttle sub-hour deposition updates
+        let lastDepRenderMs = 0; // real-time throttle for deposition re-render
+        let liveDepGrid = new Map(); // cellKey -> accumulated deposited mass (grows as particles deposit)
+        let liveDepMax = 0;          // current max value for normalization
         
         // Custom warm gradient for the heatmap canvas
         // Creates a smooth yellow → orange → red → deep red gradient
@@ -4268,39 +4369,54 @@ class CalvertCityPlumeEngine:
                 return;
             }}
 
-            const depGrid = PLUME_DATA.deposition_grid;
-            if (!depGrid || !depGrid.hours || depGrid.max_val <= 0) return;
-
-            // Blend between consecutive hourly snapshots for smooth continuous deposition growth
-            const h0 = Math.max(0, Math.min(depGrid.hours.length - 1, Math.floor(fracTime)));
-            const h1 = Math.min(depGrid.hours.length - 1, h0 + 1);
-            const alpha = fracTime - Math.floor(fracTime); // 0→1 blend factor within the hour
-
-            const hourData0 = depGrid.hours[h0];
-            const hourData1 = depGrid.hours[h1];
-            const maxVal = depGrid.max_val;
-
-            // Merge point intensities from h0 and h1 with linear blend
-            const pointMap = new Map();
-            if (hourData0 && hourData0.cells) {{
-                for (const cell of hourData0.cells) {{
-                    const key = `${{cell.lat}},${{cell.lon}}`;
-                    pointMap.set(key, {{ lat: cell.lat, lon: cell.lon, val: cell.val * (1 - alpha) }});
-                }}
-            }}
-            if (hourData1 && hourData1.cells && alpha > 0) {{
-                for (const cell of hourData1.cells) {{
-                    const key = `${{cell.lat}},${{cell.lon}}`;
-                    const ex = pointMap.get(key);
-                    if (ex) {{ ex.val += cell.val * alpha; }}
-                    else {{ pointMap.set(key, {{ lat: cell.lat, lon: cell.lon, val: cell.val * alpha }}); }}
-                }}
-            }}
-
             const heatPoints = [];
-            for (const pt of pointMap.values()) {{
-                const intensity = pt.val / maxVal;
-                if (intensity >= 0.005) heatPoints.push([pt.lat, pt.lon, intensity]);
+
+            if (particleSource !== 'hysplit') {{
+                // ── Live sandbox path: build heatmap directly from running deposition accumulator ──
+                if (liveDepMax <= 0) {{
+                    if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
+                    return;
+                }}
+                const timeProgress = Math.min(1.0, playbackTime / 24.0);
+                for (const [key, val] of liveDepGrid) {{
+                    const rel = val / liveDepMax;
+                    const intensity = Math.min(1.0, Math.pow(rel, DEP_GAMMA) * timeProgress);
+                    if (intensity >= 0.003) {{
+                        const comma = key.indexOf(',');
+                        heatPoints.push([parseFloat(key.slice(0, comma)), parseFloat(key.slice(comma + 1)), intensity]);
+                    }}
+                }}
+            }} else {{
+                // ── HYSPLIT reference path: blend hourly precomputed snapshots ──
+                const depGrid = PLUME_DATA.deposition_grid;
+                if (!depGrid || !depGrid.hours || depGrid.max_val <= 0) return;
+
+                const h0 = Math.max(0, Math.min(depGrid.hours.length - 1, Math.floor(fracTime)));
+                const h1 = Math.min(depGrid.hours.length - 1, h0 + 1);
+                const alpha = fracTime - Math.floor(fracTime);
+
+                const pointMap = new Map();
+                const hourData0 = depGrid.hours[h0];
+                const hourData1 = depGrid.hours[h1];
+                if (hourData0 && hourData0.cells) {{
+                    for (const cell of hourData0.cells) {{
+                        const key = `${{cell.lat}},${{cell.lon}}`;
+                        pointMap.set(key, {{ lat: cell.lat, lon: cell.lon, val: cell.val * (1 - alpha) }});
+                    }}
+                }}
+                if (hourData1 && hourData1.cells && alpha > 0) {{
+                    for (const cell of hourData1.cells) {{
+                        const key = `${{cell.lat}},${{cell.lon}}`;
+                        const ex = pointMap.get(key);
+                        if (ex) {{ ex.val += cell.val * alpha; }}
+                        else {{ pointMap.set(key, {{ lat: cell.lat, lon: cell.lon, val: cell.val * alpha }}); }}
+                    }}
+                }}
+                const maxVal = depGrid.max_val;
+                for (const pt of pointMap.values()) {{
+                    const intensity = pt.val / maxVal;
+                    if (intensity >= 0.005) heatPoints.push([pt.lat, pt.lon, intensity]);
+                }}
             }}
 
             if (heatPoints.length === 0) {{
@@ -4310,7 +4426,6 @@ class CalvertCityPlumeEngine:
 
             const zoomOpts = getHeatmapOptionsForZoom(map.getZoom());
             if (!depositionHeatLayer) {{
-                // Create layer on first call or after forced removal (e.g. zoom change)
                 depositionHeatLayer = L.heatLayer(heatPoints, {{
                     radius: zoomOpts.radius,
                     blur: zoomOpts.blur,
@@ -4320,12 +4435,16 @@ class CalvertCityPlumeEngine:
                     gradient: depositionGradient
                 }}).addTo(map);
             }} else {{
-                // Update data in-place — far faster than destroy/recreate
                 depositionHeatLayer.setLatLngs(heatPoints);
                 depositionHeatLayer.redraw();
             }}
         }}
         
+        // Particles toggle event handler
+        document.getElementById('particles-toggle').addEventListener('change', (e) => {{
+            showParticles = e.target.checked;
+        }});
+
         // Deposition toggle event handler
         document.getElementById('deposition-toggle').addEventListener('change', (e) => {{
             showDeposition = e.target.checked;
@@ -4356,17 +4475,17 @@ class CalvertCityPlumeEngine:
             const hasHysplit = !!(PLUME_DATA && PLUME_DATA.hysplit_deposition_grid);
             const hysplitOpt = document.createElement('option');
             hysplitOpt.value = 'hysplit';
-            hysplitOpt.textContent = 'HYSPLIT (High-fidelity)';
+            hysplitOpt.textContent = 'HYSPLIT Residence Footprint (Reference)';
             if (!hasHysplit) {{
                 hysplitOpt.disabled = true;
                 hysplitOpt.textContent += ' - Not Available';
             }}
             selectEl.appendChild(hysplitOpt);
-            
+
             // Sandbox option
             const sandboxOpt = document.createElement('option');
             sandboxOpt.value = 'sandbox';
-            sandboxOpt.textContent = 'Simulation Sandbox (Real-time)';
+            sandboxOpt.textContent = 'Live Deposition (Physics)';
             selectEl.appendChild(sandboxOpt);
             
             // Default to sandbox for smooth continuous emission from point sources.
@@ -4386,12 +4505,13 @@ class CalvertCityPlumeEngine:
                 particleSource = 'hysplit';
                 particles = []; // clear sandbox particles
                 updateHysplitParticles(playbackTime);
-                // HYSPLIT deposition grid is pre-calculated; just switch pointer
-                recalculateDeposition();
+                recalculateDeposition(); // points deposition_grid at HYSPLIT precompute
             }} else {{
                 particleSource = 'sandbox';
                 hysplitParticles = []; // clear HYSPLIT particles
-                recalculateDeposition();
+                particles = [];
+                liveDepGrid = new Map(); // reset live accumulator; grows fresh as particles deposit
+                liveDepMax = 0;
             }}
             lastDepositionHour = -1;  // kept for compat
             lastDepUpdateTime = -999;
@@ -4417,6 +4537,8 @@ class CalvertCityPlumeEngine:
                     particles = [];
                     hysplitParticles = [];
                     lastSpawnTime = -999;
+                    liveDepGrid = new Map();
+                    liveDepMax = 0;
                 }}
                 
                 if (particleSource === 'hysplit') {{
@@ -4432,8 +4554,10 @@ class CalvertCityPlumeEngine:
                 prevPlaybackTime = playbackTime;
                 updateHUD();
                 
-                // Update deposition heatmap with sub-hour blending (throttled: max once per ~0.1 sim-hours)
-                if (showDeposition && Math.abs(playbackTime - lastDepUpdateTime) >= 0.1) {{
+                // Update deposition heatmap with sub-hour blending (throttled: max once per 120ms real time)
+                const nowMs = performance.now();
+                if (showDeposition && nowMs - lastDepRenderMs >= 120) {{
+                    lastDepRenderMs = nowMs;
                     lastDepUpdateTime = playbackTime;
                     lastDepositionHour = Math.floor(playbackTime); // keep compat
                     renderDepositionHeatmap(playbackTime);
@@ -4450,14 +4574,9 @@ class CalvertCityPlumeEngine:
         updateDepositionSourceSelect();
         const _hasHysplitData = !!(PLUME_DATA && PLUME_DATA.particles && Object.keys(PLUME_DATA.particles).length > 0);
         const _hasHysplitDep = !!(PLUME_DATA && PLUME_DATA.hysplit_deposition_grid);
-        // Always start in sandbox mode for smooth point-source emission.
+        // Start in sandbox mode: live deposition accumulator grows from scratch as particles deposit.
+        // HYSPLIT reference footprint is selectable from the dropdown — no batch precompute on load.
         particleSource = 'sandbox';
-        if (_hasHysplitDep) {{
-            // Use HYSPLIT deposition grid for accurate ground accumulation
-            PLUME_DATA.deposition_grid = PLUME_DATA.hysplit_deposition_grid;
-        }} else {{
-            recalculateDeposition();
-        }}
 
         // Boot
         requestAnimationFrame(tick);
