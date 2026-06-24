@@ -3609,13 +3609,14 @@ class CalvertCityPlumeEngine:
             const x = ((clampedLon - lonMin) / lonSpan) * (GRID_SIZE - 1);
             const y = ((clampedLat - latMin) / latSpan) * (GRID_SIZE - 1);
 
-            const x0 = Math.floor(x);
-            const x1 = Math.min(GRID_SIZE - 1, x0 + 1);
-            const y0 = Math.floor(y);
-            const y1 = Math.min(GRID_SIZE - 1, y0 + 1);
+            // Robust floor mapping with explicit boundary clamping to prevent index thrashing
+            const x0 = Math.max(0, Math.min(GRID_SIZE - 2, Math.floor(x)));
+            const x1 = x0 + 1;
+            const y0 = Math.max(0, Math.min(GRID_SIZE - 2, Math.floor(y)));
+            const y1 = y0 + 1;
 
-            const tx = x - x0;
-            const ty = y - y0;
+            const tx = Math.max(0, Math.min(1.0, x - x0));
+            const ty = Math.max(0, Math.min(1.0, y - y0));
 
             const v00 = grid[y0][x0];
             const v10 = grid[y0][x1];
@@ -3865,7 +3866,8 @@ class CalvertCityPlumeEngine:
                     
                     simParticles = simParticles.filter(p => {{
                         const ageMin = (time - p.birth) * 60;
-                        return ageMin >= 0 && ageMin < liveLifespan;
+                        const inBounds = p.lat >= latMin && p.lat <= latMax && p.lon >= lonMin && p.lon <= lonMax;
+                        return ageMin >= 0 && ageMin < liveLifespan && inBounds;
                     }});
                     
                     for (let i = 0; i < simParticles.length; i++) {{
@@ -3876,12 +3878,19 @@ class CalvertCityPlumeEngine:
                         const turbMax    = p.type === 'fugitive' ? TURB_MAX    * 1.5 : TURB_MAX;
                         const ageTurb = Math.min(turbMax, baseTurb + turbGrowth * ageH);
 
+                        // Active Grid Boundary Truncation inside the loop
+                        if (p.lat < latMin || p.lat > latMax || p.lon < lonMin || p.lon > lonMax) continue;
+
                         const wind = getWind(time, p.lat, p.lon, p.type);
                         const SPREAD_KICK = 1.2;
                         const spreadLat = Math.max(ageTurb, (wind.sLat || 0) * SPREAD_KICK);
                         const spreadLon = Math.max(ageTurb, (wind.sLon || 0) * SPREAD_KICK);
-                        p.lat += (wind.dLat + p.tLat * spreadLat + (random() - 0.5) * spreadLat * 0.4) * dt;
-                        p.lon += (wind.dLon + p.tLon * spreadLon + (random() - 0.5) * spreadLon * 0.4) * dt;
+                        
+                        // Balance random-walk dispersion near source clusters and at low velocities
+                        const windMag = Math.hypot(wind.dLat, wind.dLon);
+                        const noiseScale = Math.min(1.0, ageH * 4.0) * Math.min(1.0, windMag / 0.01);
+                        p.lat += (wind.dLat + p.tLat * spreadLat + (random() - 0.5) * spreadLat * 0.4 * noiseScale) * dt;
+                        p.lon += (wind.dLon + p.tLon * spreadLon + (random() - 0.5) * spreadLon * 0.4 * noiseScale) * dt;
                         
                         if (p.type === 'fugitive') {{
                             p.ht = Math.max(0, Math.min(10, p.ht + (random() - 0.5) * 1 * dt));
@@ -3964,6 +3973,18 @@ class CalvertCityPlumeEngine:
                 if (!(age >= 0 && age < SAFETY_MAX_AGE && activeFacilities[p.fac] && activeChemicals[p.fac][p.chem] && matchesMode)) continue;
                 if (p.mass !== undefined && p.mass <= DEP_MASS_FLOOR) continue;
 
+                // Active Grid Boundary Truncation & Proximity Fade
+                const borderLat = 0.005;
+                const borderLon = 0.005;
+                let fade = 1.0;
+                if (p.lat < latMin + borderLat) fade = Math.min(fade, (p.lat - latMin) / borderLat);
+                if (p.lat > latMax - borderLat) fade = Math.min(fade, (latMax - p.lat) / borderLat);
+                if (p.lon < lonMin + borderLon) fade = Math.min(fade, (p.lon - lonMin) / borderLon);
+                if (p.lon > lonMax - borderLon) fade = Math.min(fade, (lonMax - p.lon) / borderLon);
+                p.boundaryFade = Math.max(0.0, Math.min(1.0, fade));
+
+                if (p.lat < latMin || p.lat > latMax || p.lon < lonMin || p.lon > lonMax) continue;
+
                 const ageH = playbackTime - p.birth;
                 const baseTurb   = p.type === 'fugitive' ? TURB_BASE   * 1.5 : TURB_BASE;
                 const turbGrowth = p.type === 'fugitive' ? TURB_GROWTH * 1.5 : TURB_GROWTH;
@@ -3974,8 +3995,12 @@ class CalvertCityPlumeEngine:
                 const SPREAD_KICK = 1.2;
                 const spreadLat = Math.max(ageTurb, (wind.sLat || 0) * SPREAD_KICK);
                 const spreadLon = Math.max(ageTurb, (wind.sLon || 0) * SPREAD_KICK);
-                p.lat += (wind.dLat + p.tLat * spreadLat + (Math.random() - 0.5) * spreadLat * 0.4) * dtHours;
-                p.lon += (wind.dLon + p.tLon * spreadLon + (Math.random() - 0.5) * spreadLon * 0.4) * dtHours;
+                
+                // Balance random-walk dispersion near source clusters and at low velocities
+                const windMag = Math.hypot(wind.dLat, wind.dLon);
+                const noiseScale = Math.min(1.0, ageH * 4.0) * Math.min(1.0, windMag / 0.01);
+                p.lat += (wind.dLat + p.tLat * spreadLat + (Math.random() - 0.5) * spreadLat * 0.4 * noiseScale) * dtHours;
+                p.lon += (wind.dLon + p.tLon * spreadLon + (Math.random() - 0.5) * spreadLon * 0.4 * noiseScale) * dtHours;
                 if (p.type === 'fugitive') {{
                     p.ht = Math.max(0, Math.min(10, p.ht + (Math.random() - 0.5) * 1 * dtHours));
                 }} else {{
@@ -4081,7 +4106,8 @@ class CalvertCityPlumeEngine:
                 if (ageFade <= 0.01) continue;
 
                 const typeOpacityCap = (p.type === 'fugitive') ? fugitiveOpacity : stackOpacity;
-                const opacity = ageFade * typeOpacityCap * (p.fadeMod !== undefined ? p.fadeMod : 1.0);
+                const boundaryFade = (p.boundaryFade !== undefined) ? p.boundaryFade : 1.0;
+                const opacity = ageFade * typeOpacityCap * (p.fadeMod !== undefined ? p.fadeMod : 1.0) * boundaryFade;
                 if (opacity <= 0.01) continue;
 
                 const hBonus = Math.min(1.2, p.ht / 250.0);
