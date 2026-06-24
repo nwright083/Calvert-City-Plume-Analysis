@@ -97,15 +97,22 @@ The Python `build_wind_grid_for_filter()` function now exports per-cell `{"dLat"
 
 ## 📝 Current Task & Next Steps
 
-### 🔍 Verification Required
+### 🎯 NEXT JOB: Daily Automated Simulation & Weather Page Integration
+This is the primary next job:
+1. **Decouple Plume Data**: Modify [calvert_plume_engine.py](file:///Users/nawrig04/plume-analysis/calvert_plume_engine.py) to add a command-line flag for generating standalone JSON files (e.g. `data/plume-YYYY-MM-DD.json`) instead of baking data directly into [index.html](file:///Users/nawrig04/plume-analysis/index.html).
+2. **Local macOS Daemon Setup**: Set up a macOS `launchd` plist to run the simulation engine automatically at night (running for the previous day's date, downloading weather via `Herbie`, running HYSPLIT), write the daily JSON file, and execute [sync.sh](file:///Users/nawrig04/plume-analysis/sync.sh) to push the updates to the GitHub repository.
+3. **Weather Forecast Page Integration**: Update the Leaflet map on the main weather variable analysis forecast webpage to include a toggleable layer or tab for the plume simulation. This frontend will fetch `data/plume-YYYY-MM-DD.json` based on a date slider and overlay particles and deposition heatmaps on top of the weather map.
+
+### 🔍 Verification Required (Current Sandbox Prototype)
 - [ ] Open the regenerated `index.html` (single-day simulation) and verify that the live deposition heatmap correctly accumulates over time without disappearing or collapsing to a source blob.
 - [ ] Hover over deposited areas in sandbox mode and confirm the tooltip displays live-updating mass accumulation values ($g/m^2$) matching the on-screen gradient.
 
-### 🗺️ Future Improvements (From [future_ideas.md](file:///Users/nawrig04/plume-analysis/future_ideas.md))
+### 🗺️ Other Future Improvements (From [future_ideas.md](file:///Users/nawrig04/plume-analysis/future_ideas.md))
 - Fix the **Industrial Point Sources legend dropdown scrolling** (needs Leaflet click/scroll propagation disabled).
 - Fix the **Particle Density Scaling** bug (summing emissions uses `"lbs_year"` instead of `"total_lbs"` in `write_setup_file()`).
 - Verify and correct geolocation coordinates for facilities using satellite imagery.
 - Add crowd-sourced smell report overlays.
+
 
 ---
 

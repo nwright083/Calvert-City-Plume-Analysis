@@ -167,3 +167,19 @@ This document serves as a living roadmap of future ideas, improvements, and bug 
 * **Proposed Solution**:
   * Create a desktop or local web application (e.g. using Electron, Streamlit, or React/Node) that handles downloading/packaging HYSPLIT executables.
   * Build a clean GUI interface to manage all simulation settings, run the underlying python commands, and output the visualization file.
+
+---
+
+## 6. Daily Automation & Weather Page Integration (Next Job)
+
+### 🔴 Daily Automated Simulation & Weather Page Overlay
+* **Status**: 🔴 Scheduled / Planned (Next Job)
+* **Difficulty**: Medium to Hard
+* **Description**: Automate the plume model to run daily for the previous day, generate a standalone JSON file, and overlay the plume trajectories and deposition heatmaps on top of the Leaflet map on the main weather variable analysis forecast website.
+* **Proposed Solution**:
+  * **Decoupled Architecture**: Modify [calvert_plume_engine.py](file:///Users/nawrig04/plume-analysis/calvert_plume_engine.py) to output simulation data for a single day as a compressed JSON file (e.g., `data/plume-YYYY-MM-DD.json`) instead of generating a 30MB standalone `index.html`.
+  * **Daily Run Options**:
+    * **Local macOS Daemon (Recommended)**: Set up a macOS `launchd` plist on the local machine (or a local homeserver VM) to wake the Mac/server, run the Python engine at night to fetch yesterday's weather via `Herbie`, run HYSPLIT, generate the JSON, and call [sync.sh](file:///Users/nawrig04/plume-analysis/sync.sh) to push it to the `web-deploy` branch on GitHub.
+    * **GitHub Actions Workflow**: Run in the cloud via a cron workflow, though this requires compiling Linux HYSPLIT binaries and carefully managing disk space (since downloading and converting HRRR grids to `.ARL` takes ~17GB, which exceeds standard runner limits).
+  * **Unified Map Integration**: Add a Leaflet tab/toggle layer on the weather variable analysis forecast page. When enabled, it dynamically fetches the JSON file for the chosen date and runs the plume overlay simulation (particles + deposition heatmap) on top of the weather map.
+
