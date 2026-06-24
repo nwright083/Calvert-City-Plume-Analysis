@@ -170,10 +170,19 @@ This document serves as a living roadmap of future ideas, improvements, and bug 
 
 ---
 
-## 6. Daily Automation & Weather Page Integration (Next Job)
+## 6. Windshield Wiper Bug & Daily Automation (Next Job)
+
+### 🔴 Fix Windshield Wiper Bug
+* **Status**: 🔴 Pending Investigation (Next Job)
+* **Difficulty**: Medium
+* **Description**: Particles near the top of the map interface are getting locked into a synchronized, artificial left-to-right sweeping wave across the screen, moving in perfect unison like a windshield wiper.
+* **Proposed Solution**:
+  * Investigate why out-of-bounds boundary checks (`p.lat > latMax`) inside `advect()` and `recalculateDeposition()` are not successfully removing these particles, or if the variables are being bypassed.
+  * Check if the issue occurs during HYSPLIT interpolation when particles hit model grid limits.
 
 ### 🔴 Daily Automated Simulation & Weather Page Overlay
 * **Status**: 🔴 Scheduled / Planned (Next Job)
+
 * **Difficulty**: Medium to Hard
 * **Description**: Automate the plume model to run daily for the previous day, generate a standalone JSON file, and overlay the plume trajectories and deposition heatmaps on top of the Leaflet map on the main weather variable analysis forecast website.
 * **Proposed Solution**:

@@ -97,11 +97,15 @@ The Python `build_wind_grid_for_filter()` function now exports per-cell `{"dLat"
 
 ## 📝 Current Task & Next Steps
 
-### 🎯 NEXT JOB: Daily Automated Simulation & Weather Page Integration
-This is the primary next job:
-1. **Decouple Plume Data**: Modify [calvert_plume_engine.py](file:///Users/nawrig04/plume-analysis/calvert_plume_engine.py) to add a command-line flag for generating standalone JSON files (e.g. `data/plume-YYYY-MM-DD.json`) instead of baking data directly into [index.html](file:///Users/nawrig04/plume-analysis/index.html).
-2. **Local macOS Daemon Setup**: Set up a macOS `launchd` plist to run the simulation engine automatically at night (running for the previous day's date, downloading weather via `Herbie`, running HYSPLIT), write the daily JSON file, and execute [sync.sh](file:///Users/nawrig04/plume-analysis/sync.sh) to push the updates to the GitHub repository.
-3. **Weather Forecast Page Integration**: Update the Leaflet map on the main weather variable analysis forecast webpage to include a toggleable layer or tab for the plume simulation. This frontend will fetch `data/plume-YYYY-MM-DD.json` based on a date slider and overlay particles and deposition heatmaps on top of the weather map.
+### 🎯 NEXT JOB: Fix Windshield Wiper Bug & Daily Automation
+These are the primary tasks for the next session:
+1. **Investigate & Fix Windshield Wiper Bug**: 
+   - Particles near the top of the map interface are still getting locked into a synchronized, artificial left-to-right sweeping wave across the screen, moving in unison like a windshield wiper.
+   - Investigate why the culling/fading boundary checks in `advect()` and `recalculateDeposition()` are not fully clearing these particles, or if the bug is occurring in HYSPLIT mode due to recycled coordinate tracking.
+2. **Daily Automation & Weather Page Integration**:
+   - **Decouple Plume Data**: Modify [calvert_plume_engine.py](file:///Users/nawrig04/plume-analysis/calvert_plume_engine.py) to add a command-line flag for generating standalone JSON files (e.g. `data/plume-YYYY-MM-DD.json`) instead of baking data directly into [index.html](file:///Users/nawrig04/plume-analysis/index.html).
+   - **Local macOS Daemon Setup**: Set up a macOS `launchd` plist to run the simulation engine automatically at night (running for the previous day's date, downloading weather via `Herbie`, running HYSPLIT), write the daily JSON file, and execute [sync.sh](file:///Users/nawrig04/plume-analysis/sync.sh) to push the updates to the GitHub repository.
+   - **Weather Forecast Page Integration**: Update the Leaflet map on the main weather variable analysis forecast webpage to include a toggleable layer or tab for the plume simulation. This frontend will fetch `data/plume-YYYY-MM-DD.json` based on a date slider and overlay particles and deposition heatmaps on top of the weather map.
 
 ### 🔍 Verification Required (Current Sandbox Prototype)
 - [ ] Open the regenerated `index.html` (single-day simulation) and verify that the live deposition heatmap correctly accumulates over time without disappearing or collapsing to a source blob.
