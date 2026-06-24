@@ -2960,6 +2960,7 @@ class CalvertCityPlumeEngine:
             playbackTime = 0.0;
             prevPlaybackTime = 0.0;
             particles = [];
+            nextSandboxId = 0;
             lastSpawnTime = -999;
 
             // Update UI components
@@ -3442,6 +3443,7 @@ class CalvertCityPlumeEngine:
         const maxFacLbs = Math.max(...PLUME_DATA.facilities.map(f => f.total_lbs || 1), 1);
         
         let particles = [];           // Sandbox simulation particles
+        let nextSandboxId = 0;        // Stable unique ID generator for sandbox particles
         let hysplitParticles = [];     // Interpolated HYSPLIT particles (from Python-exported data)
         let particleSource = 'hysplit'; // 'hysplit' or 'sandbox'
         let lastSpawnTime = -999;
@@ -3497,16 +3499,19 @@ class CalvertCityPlumeEngine:
                     let fadeMod = 1.0;
 
                     const pn = nxtMap.get(id);
-                    if (pn && H_cur !== H_next) {{
+                    // Check if the next hour's particle is actually the same particle (age must increase)
+                    // HYSPLIT recycles IDs once particles deposit, which would otherwise cause warp-speed flybacks
+                    const isSameParticle = pn && (pn[4] > age);
+                    if (isSameParticle && H_cur !== H_next) {{
                         // Smooth linear interpolation between current and next hour
                         finalLat = lat + (pn[1] - lat) * frac;
                         finalLon = lon + (pn[2] - lon) * frac;
                         finalHt  = Math.max(0, height + (pn[3] - height) * frac);
                         finalAge = age + (pn[4] - age) * frac;
-                    }} else if (!pn) {{
-                        // Particle absent in next hour — fade out smoothly over second half
+                    }} else if (pn && !isSameParticle) {{
+                        // Recycled ID: treat old particle as disappeared (fade out over first half of hour)
                         if (frac > 0.5) continue;
-                        fadeMod = 1.0 - frac * 2.0; // 1→0 from frac=0 to frac=0.5
+                        fadeMod = 1.0 - frac * 2.0;
                     }}
 
                     newParticles.push({{
@@ -3719,6 +3724,7 @@ class CalvertCityPlumeEngine:
 
                             for (let i = 0; i < count; i++) {{
                                 particles.push({{
+                                    id: nextSandboxId++,
                                     lat: fac.lat + (Math.random() - 0.5) * 0.0008,
                                     lon: fac.lon + (Math.random() - 0.5) * 0.0008,
                                     ht: fac.height || 15.0,
@@ -3746,6 +3752,7 @@ class CalvertCityPlumeEngine:
                             
                             for (let i = 0; i < count; i++) {{
                                 particles.push({{
+                                    id: nextSandboxId++,
                                     lat: fac.lat + (Math.random() - 0.5) * 0.0012,
                                     lon: fac.lon + (Math.random() - 0.5) * 0.0012,
                                     ht: 2.0, // lower fugitive release height
@@ -3988,10 +3995,13 @@ class CalvertCityPlumeEngine:
                     const cellLat = Math.round(p.lat / grid_spacing) * grid_spacing;
                     const cellLon = Math.round(p.lon / grid_spacing) * grid_spacing;
                     const cellKey = cellLat.toFixed(4) + ',' + cellLon.toFixed(4);
-                    const prev = liveDepGrid.get(cellKey) || 0.0;
-                    const next = prev + dDep;
-                    liveDepGrid.set(cellKey, next);
-                    if (next > liveDepMax) liveDepMax = next;
+                    let cell = liveDepGrid.get(cellKey);
+                    if (!cell) {{
+                        cell = {{ lat: cellLat, lon: cellLon, val: 0.0 }};
+                        liveDepGrid.set(cellKey, cell);
+                    }}
+                    cell.val += dDep;
+                    if (cell.val > liveDepMax) liveDepMax = cell.val;
                 }}
 
                 particles[writeIdx++] = p;
@@ -4077,8 +4087,8 @@ class CalvertCityPlumeEngine:
                 const hBonus = Math.min(1.2, p.ht / 250.0);
                 const radius = Math.max(0.5, Math.min(liveSize * 2.5, (liveSize + hBonus) * {EMISSION_MULTIPLIER}));
 
-                const jx = (jHash(i, p.fac) - 0.5) * 2.5;
-                const jy = (jHash(i + 7919, p.fac) - 0.5) * 2.5;
+                const jx = (jHash(p.id, p.fac) - 0.5) * 2.5;
+                const jy = (jHash(p.id + 7919, p.fac) - 0.5) * 2.5;
                 const px = originX + (p.lon - c.lng) * pxPerLon + jx;
                 const py = originY + (p.lat - c.lat) * pxPerLat + jy;
 
@@ -4157,6 +4167,7 @@ class CalvertCityPlumeEngine:
             const newTime = parseFloat(e.target.value);
             if (Math.abs(newTime - playbackTime) > 0.3) {{
                 particles = [];
+                nextSandboxId = 0;
                 lastSpawnTime = -999;
             }}
             playbackTime = newTime;
@@ -4216,12 +4227,13 @@ class CalvertCityPlumeEngine:
                     const cellLat = Math.round(mouseLat / grid_spacing) * grid_spacing;
                     const cellLon = Math.round(mouseLon / grid_spacing) * grid_spacing;
                     const cellKey = cellLat.toFixed(4) + ',' + cellLon.toFixed(4);
-                    const cellVal = liveDepGrid.get(cellKey);
-                    if (cellVal !== undefined && cellVal > 0) {{
+                    const cell = liveDepGrid.get(cellKey);
+                    if (cell !== undefined && cell.val > 0) {{
                         tooltipTitle.textContent = "🌡️ Surface Deposition";
                         tooltipTitle.style.color = "#f59e0b";
                         const depGrid = PLUME_DATA.deposition_grid;
                         const maxVal = (depGrid && depGrid.max_val > 0) ? depGrid.max_val : liveDepMax;
+                        const cellVal = cell.val;
                         const rel = cellVal / maxVal;
                         const intensity = Math.min(1.0, rel);
                         let risk = "Low"; let riskColor = "#22c55e";
@@ -4309,6 +4321,7 @@ class CalvertCityPlumeEngine:
             playbackTime = 0.0;
             prevPlaybackTime = 0.0;
             particles = [];
+            nextSandboxId = 0;
             lastSpawnTime = -999;
             liveDepGrid = new Map();
             liveDepMax = 0;
@@ -4389,44 +4402,30 @@ class CalvertCityPlumeEngine:
                 }}
                 const depGrid = PLUME_DATA.deposition_grid;
                 const maxVal = (depGrid && depGrid.max_val > 0) ? depGrid.max_val : liveDepMax;
-                for (const [key, val] of liveDepGrid) {{
-                    const rel = val / maxVal;
+                for (const cell of liveDepGrid.values()) {{
+                    const rel = cell.val / maxVal;
                     const intensity = Math.min(1.0, rel); // Linear scale!
                     if (intensity >= 0.003) {{
-                        const comma = key.indexOf(',');
-                        heatPoints.push([parseFloat(key.slice(0, comma)), parseFloat(key.slice(comma + 1)), intensity]);
+                        heatPoints.push([cell.lat, cell.lon, intensity]);
                     }}
                 }}
             }} else {{
-                // ── HYSPLIT reference path: blend hourly precomputed snapshots ──
+                // ── HYSPLIT reference path: render current hour precomputed snapshot directly ──
+                // Bypasses interpolation to eliminate thousands of string allocations and Map lookups per second
                 const depGrid = PLUME_DATA.deposition_grid;
                 if (!depGrid || !depGrid.hours || depGrid.max_val <= 0) return;
 
                 const h0 = Math.max(0, Math.min(depGrid.hours.length - 1, Math.floor(fracTime)));
-                const h1 = Math.min(depGrid.hours.length - 1, h0 + 1);
-                const alpha = fracTime - Math.floor(fracTime);
-
-                const pointMap = new Map();
-                const hourData0 = depGrid.hours[h0];
-                const hourData1 = depGrid.hours[h1];
-                if (hourData0 && hourData0.cells) {{
-                    for (const cell of hourData0.cells) {{
-                        const key = `${{cell.lat}},${{cell.lon}}`;
-                        pointMap.set(key, {{ lat: cell.lat, lon: cell.lon, val: cell.val * (1 - alpha) }});
+                const hourData = depGrid.hours[h0];
+                if (hourData && hourData.cells) {{
+                    const maxVal = depGrid.max_val;
+                    for (let i = 0; i < hourData.cells.length; i++) {{
+                        const cell = hourData.cells[i];
+                        const intensity = cell.val / maxVal;
+                        if (intensity >= 0.005) {{
+                            heatPoints.push([cell.lat, cell.lon, intensity]);
+                        }}
                     }}
-                }}
-                if (hourData1 && hourData1.cells && alpha > 0) {{
-                    for (const cell of hourData1.cells) {{
-                        const key = `${{cell.lat}},${{cell.lon}}`;
-                        const ex = pointMap.get(key);
-                        if (ex) {{ ex.val += cell.val * alpha; }}
-                        else {{ pointMap.set(key, {{ lat: cell.lat, lon: cell.lon, val: cell.val * alpha }}); }}
-                    }}
-                }}
-                const maxVal = depGrid.max_val;
-                for (const pt of pointMap.values()) {{
-                    const intensity = pt.val / maxVal;
-                    if (intensity >= 0.005) heatPoints.push([pt.lat, pt.lon, intensity]);
                 }}
             }}
 
@@ -4515,12 +4514,14 @@ class CalvertCityPlumeEngine:
             if (srcVal === 'hysplit') {{
                 particleSource = 'hysplit';
                 particles = []; // clear sandbox particles
+                nextSandboxId = 0;
                 updateHysplitParticles(playbackTime);
                 recalculateDeposition(); // points deposition_grid at HYSPLIT precompute
             }} else {{
                 particleSource = 'sandbox';
                 hysplitParticles = []; // clear HYSPLIT particles
                 particles = [];
+                nextSandboxId = 0;
                 liveDepGrid = new Map(); // reset live accumulator; grows fresh as particles deposit
                 liveDepMax = 0;
                 recalculateDeposition(); // precomputes sandbox deposition grid and sets max_val
@@ -4547,6 +4548,7 @@ class CalvertCityPlumeEngine:
                 if (playbackTime > 24.0) {{
                     playbackTime = 0.0;
                     particles = [];
+                    nextSandboxId = 0;
                     hysplitParticles = [];
                     lastSpawnTime = -999;
                     liveDepGrid = new Map();
