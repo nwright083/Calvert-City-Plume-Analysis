@@ -182,6 +182,9 @@ earlier by `drawParticles`/`updateTooltip` (which Leaflet fires during map init)
 Fix (one-day engine): declare `let showParticles=true; showDeposition=true` early (line ~3406, before
 the map); null-guard every reference to those 5 missing IDs. Verified by running the real app JS in
 Node with a stub that returns `null` for exactly those IDs → init + `tick()` run clean.
+**UPDATE 2026-07-01:** `particles-toggle` now DOES exist — added as the "Particle Simulation" switch in
+the LAYERS section (see below), wired to `showParticles` + `drawParticles()`. The null-guards remain
+(harmless; the sim_harness stub still returns null for it). The other 4 IDs are still absent.
 Diagnosis method (reusable): extract the two `<script>` blocks (data ~58MB + logic ~110KB) from
 index.html, eval `data + logic` in Node with a Proxy DOM/Leaflet stub, replace the boot
 `loadDepManifest(activeDate);` with a guarded `tick(16)` to surface the loop's runtime error. Scripts in
@@ -397,6 +400,15 @@ replay, so it was dead weight (`_d['plumes'].pop('particles', None)` before dump
 `drawError: null`, ~97% render, no INIT_ERROR, `"particles":` gone from data. `deposition_grid` (6.65 MB)
 was KEPT — still referenced by live code. Also fixed the FOOTPRINT LAYERS ⓘ tooltip: removed the false
 "Frames update every 12h (macOS HYSPLIT constraint)" → "hourly (23 frames, sim hours 2–24)".
+
+## ✅ UI 2026-07-01: "LAYERS" panel — 3 toggles + instant custom tooltip
+Renamed the sidebar "FOOTPRINT LAYERS" → **"LAYERS"** and added a **Particle Simulation** toggle
+(`id="particles-toggle"`, checked) beside Soil Deposition (`dep-layer-toggle`) and Ground-Level Air
+(`air-layer-toggle`). Wired next to the other two (~3586): `showParticles = checked; drawParticles();`
+(hides/shows particles; the sim keeps spawning/advecting underneath). Replaced the ⓘ **native `title=`**
+tooltip (browsers delay it 3–4 s) with a **custom instant CSS popup** (`.dep-info-btn`→`.info-pop`,
+`:hover`, z-index 10000) that explains all three layers AND how they differ (deposition accumulates /
+air per-hour / particles animate continuously; footprints = HYSPLIT contours, particles = HYSPLIT wind).
 
 ## ⚠️ OPEN ITEMS (do in the particle-rework pass)
 1. **Further slim the ~33 MB embed** — depositionArchive is still ~27 MB of GeoJSON. Next levers (riskier,

@@ -3171,7 +3171,12 @@ class CalvertCityPlumeEngine:
         .dep-toggle-slider::before {{ content:""; position:absolute; width:12px; height:12px; left:2px; bottom:2px; background:#555; border-radius:50%; transition:.2s; }}
         .dep-toggle input:checked + .dep-toggle-slider {{ background:#2a7a4f; }}
         .dep-toggle input:checked + .dep-toggle-slider::before {{ background:#fff; transform:translateX(14px); }}
-        .dep-info-btn {{ cursor:help; font-size:10px; color:var(--text-muted); border:1px solid rgba(255,255,255,.25); border-radius:50%; width:14px; height:14px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }}
+        .dep-info-btn {{ position:relative; cursor:help; font-size:10px; color:var(--text-muted); border:1px solid rgba(255,255,255,.25); border-radius:50%; width:14px; height:14px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }}
+        /* Custom instant-hover tooltip (native title= has a ~3-4s browser delay). */
+        .info-pop {{ display:none; position:absolute; top:20px; left:0; z-index:10000; width:270px; padding:10px 12px; background:#121214; color:#e5e7eb; border:1px solid rgba(255,255,255,.15); border-radius:8px; font-size:10px; line-height:1.55; font-weight:400; letter-spacing:normal; text-align:left; box-shadow:0 10px 28px rgba(0,0,0,.55); white-space:normal; pointer-events:none; }}
+        .info-pop b {{ color:#fff; font-weight:600; }}
+        .info-pop .ip-sep {{ display:block; height:6px; }}
+        .dep-info-btn:hover .info-pop {{ display:block; }}
         .dep-chem-pill {{ display:flex; align-items:center; gap:3px; font-size:9px; color:var(--text-muted); cursor:pointer; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:2px 6px; white-space:nowrap; }}
         .dep-chem-pill input {{ cursor:pointer; margin:0; }}
         .dep-chem-pill:has(input:checked) {{ border-color:rgba(255,255,255,.25); color:rgba(255,255,255,.8); }}
@@ -3245,20 +3250,24 @@ class CalvertCityPlumeEngine:
                     <div id="dep-chem-list" style="display:flex;flex-wrap:wrap;gap:3px;max-height:96px;overflow-y:auto;"></div>
                 </div>
 
-                <!-- ══ Footprint Layers ══ -->
+                <!-- ══ Layers ══ -->
                 <div class="divider"></div>
                 <div style="margin-top:12px;">
                     <div style="display:flex;align-items:center;gap:5px;margin-bottom:8px;">
-                        <span style="font-size:10px;color:var(--text-muted);font-weight:600;letter-spacing:.05em;">FOOTPRINT LAYERS</span>
-                        <span class="dep-info-btn" title="Soil Deposition (g/m²): compounds that physically settle onto ground. Chlorine and ammonia show meaningful deposits; VOCs show tiny footprints (honest).&#10;&#10;Ground-Level Air (g/m³): breathing-zone concentration at ~10m. All chemicals show a footprint here — this is what you inhale.&#10;&#10;Frames update hourly (23 hourly frames over sim hours 2–24). Deposition accumulates over the day; air shows each hour's concentration.">ⓘ</span>
+                        <span style="font-size:10px;color:var(--text-muted);font-weight:600;letter-spacing:.05em;">LAYERS</span>
+                        <span class="dep-info-btn">ⓘ<span class="info-pop">Three independent views of the same release:<span class="ip-sep"></span><b>Soil Deposition (g/m²)</b> — mass that physically settles onto the ground, accumulating over the day. Chlorine &amp; ammonia deposit meaningfully; VOCs barely deposit (tiny footprints — honest).<span class="ip-sep"></span><b>Ground-Level Air (g/m³)</b> — breathing-zone concentration at ~10&nbsp;m, shown per hour. This is what you'd actually inhale; every chemical has a footprint here.<span class="ip-sep"></span><b>Particle Simulation</b> — animated tracers streamed from each facility (colored by source), advected on the HYSPLIT hourly wind. They show <b>how</b> the plume moves and mixes in real time; the footprints show <b>where</b> concentration and deposit end up.<span class="ip-sep"></span>Footprints are straight from HYSPLIT contours (23 hourly frames, sim hours 2–24): deposition accumulates, air is per-hour, particles animate continuously.</span></span>
                     </div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
                         <span style="font-size:11px;color:var(--text-primary);">Soil Deposition <span style="color:var(--text-muted);font-size:9px;">(g/m²)</span></span>
                         <label class="dep-toggle"><input type="checkbox" id="dep-layer-toggle" checked><span class="dep-toggle-slider"></span></label>
                     </div>
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
                         <span style="font-size:11px;color:var(--text-primary);">Ground-Level Air <span style="color:var(--text-muted);font-size:9px;">(g/m³)</span></span>
                         <label class="dep-toggle"><input type="checkbox" id="air-layer-toggle" checked><span class="dep-toggle-slider"></span></label>
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                        <span style="font-size:11px;color:var(--text-primary);">Particle Simulation <span style="color:var(--text-muted);font-size:9px;">(animated)</span></span>
+                        <label class="dep-toggle"><input type="checkbox" id="particles-toggle" checked><span class="dep-toggle-slider"></span></label>
                     </div>
                 </div>
 
@@ -3576,6 +3585,14 @@ class CalvertCityPlumeEngine:
         }});
         document.getElementById('dep-layer-toggle').addEventListener('change', refreshDepLayers);
         document.getElementById('air-layer-toggle').addEventListener('change', refreshDepLayers);
+        // Particle Simulation general on/off (mirrors the dep/air layer toggles).
+        {{
+            const _partTog = document.getElementById('particles-toggle');
+            if (_partTog) {{
+                showParticles = _partTog.checked;
+                _partTog.addEventListener('change', (e) => {{ showParticles = e.target.checked; drawParticles(); }});
+            }}
+        }}
 
         // ── Footprint gating lookup: (facName|chem|srcType) → file key ──
         // Built once when the deposition manifest loads. Used by airBandAtPoint() to
