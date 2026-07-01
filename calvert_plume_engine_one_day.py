@@ -4111,18 +4111,19 @@ class CalvertCityPlumeEngine:
         const canvas = document.getElementById('particle-canvas');
         const ctx = canvas.getContext('2d');
         
-        // Move canvas inside leaflet's overlay pane so it sits behind popups (which are in popupPane)
-        map.getPanes().overlayPane.appendChild(canvas);
-        
+        // Canvas sits in the map container (NOT overlayPane) so Leaflet's zoom-pane transforms
+        // don't shift it — it always aligns with container coordinates.
+        map.getContainer().appendChild(canvas);
+        canvas.style.position = 'absolute';
+        canvas.style.zIndex = '350';  // above depPane(250) / overlayPane(400 default), below popupPane(700)
+        canvas.style.pointerEvents = 'none';
+
         function resizeCanvas() {{
             const size = map.getSize();
             canvas.width = size.x;
             canvas.height = size.y;
-            
-            const topLeft = map.containerPointToLayerPoint([0, 0]);
-            canvas.style.position = 'absolute';
-            canvas.style.left = topLeft.x + 'px';
-            canvas.style.top = topLeft.y + 'px';
+            canvas.style.left = '0';
+            canvas.style.top = '0';
         }}
         resizeCanvas();
         
@@ -5147,9 +5148,6 @@ class CalvertCityPlumeEngine:
         // batched fills grouped by color+opacity bucket, in-place viewport cull.
         function drawParticles() {{
             resizeCanvas();
-            const topLeft = map.containerPointToLayerPoint([0, 0]);
-            canvas.style.left = topLeft.x + 'px';
-            canvas.style.top = topLeft.y + 'px';
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (!showParticles) return;
 
@@ -5157,15 +5155,16 @@ class CalvertCityPlumeEngine:
             const stackOpacity = getSandboxStackOpacity();
             const fugitiveOpacity = getSandboxFugitiveOpacity();
 
-            // One linear lat/lon→pixel calibration per frame (3 projections total)
+            // One linear lat/lon→pixel calibration per frame using container coordinates
+            // (container coords are zoom-transform-independent — matches updateTooltip's hit test)
             const c = map.getCenter();
-            const pC  = map.latLngToLayerPoint(c);
-            const pLo = map.latLngToLayerPoint(L.latLng(c.lat, c.lng + 0.01));
-            const pLa = map.latLngToLayerPoint(L.latLng(c.lat + 0.01, c.lng));
+            const pC  = map.latLngToContainerPoint(c);
+            const pLo = map.latLngToContainerPoint(L.latLng(c.lat, c.lng + 0.01));
+            const pLa = map.latLngToContainerPoint(L.latLng(c.lat + 0.01, c.lng));
             const pxPerLon = (pLo.x - pC.x) / 0.01;
             const pxPerLat = (pLa.y - pC.y) / 0.01;  // negative: north = up
-            const originX = pC.x - topLeft.x;
-            const originY = pC.y - topLeft.y;
+            const originX = pC.x;
+            const originY = pC.y;
 
             // Numeric viewport bounds — no LatLng alloc per particle
             const bounds = map.getBounds();
@@ -5313,43 +5312,9 @@ class CalvertCityPlumeEngine:
                 // Hide the deposition readout popup to prevent double-popup overlap
                 depReadoutEl.style.display = 'none';
             }} else {{
-                if (showDeposition && liveDepMax > 0) {{
-                    // Sandbox mode: query liveDepGrid directly
-                    const grid_spacing = 0.002;
-                    const mouseLat = e.latlng.lat;
-                    const mouseLon = e.latlng.lng;
-                    const cellLat = Math.round(mouseLat / grid_spacing) * grid_spacing;
-                    const cellLon = Math.round(mouseLon / grid_spacing) * grid_spacing;
-                    const cellKey = cellLat.toFixed(4) + ',' + cellLon.toFixed(4);
-                    const cell = liveDepGrid.get(cellKey);
-                    // Raised threshold: only show tooltip for cells with meaningful deposition
-                    // (avoids ghost popups in areas where particles faded to invisible)
-                    const depMinThreshold = liveDepMax * 0.005;
-                    if (cell !== undefined && cell.val > depMinThreshold) {{
-                        tooltipTitle.textContent = "🌡️ Surface Deposition";
-                        tooltipTitle.style.color = "#f59e0b";
-                        const depGrid = PLUME_DATA.deposition_grid;
-                        const maxVal = (depGrid && depGrid.max_val > 0) ? depGrid.max_val : liveDepMax;
-                        const cellVal = cell.val;
-                        const rel = cellVal / maxVal;
-                        const intensity = Math.min(1.0, rel);
-                        let risk = "Low"; let riskColor = "#22c55e";
-                        if (intensity >= 0.5) {{ risk = "High"; riskColor = "#ef4444"; }}
-                        else if (intensity >= 0.15) {{ risk = "Moderate"; riskColor = "#f59e0b"; }}
-                        const displayVal = cellVal >= 0.01 ? cellVal.toFixed(4) : cellVal.toExponential(3);
-                        tooltipBody.innerHTML = `
-                            Lat/Lon: <strong>` + cellLat.toFixed(4) + `, ` + cellLon.toFixed(4) + `</strong><br/>
-                            Accumulated Mass: <strong>` + displayVal + ` g/m²</strong><br/>
-                            Deposition Level: <strong style="color: ` + riskColor + `;">` + risk + `</strong>
-                        `;
-                        tooltip.style.left = (mp.x + 15) + "px";
-                        tooltip.style.top = (mp.y + 15) + "px";
-                        tooltip.style.display = 'block';
-                        // Hide dep-readout to prevent double-popup overlap
-                        depReadoutEl.style.display = 'none';
-                        return;
-                    }}
-                }}
+                // [Particle rework: old liveDepGrid "Surface Deposition" tooltip removed —
+                //  dep-readout (#dep-readout) is the sole deposition hover (per-facility % attribution).
+                //  Old HYSPLIT deposition grid tooltip path also removed below:]
                 // [Particle rework: HYSPLIT deposition grid tooltip path removed —
                 //  live deposition tooltip above covers the sandbox/footprint-gated path]
                 /*
@@ -5439,12 +5404,6 @@ class CalvertCityPlumeEngine:
                 depositionHeatLayer._reset();
         }});
         map.on('zoom', drawParticles);
-        // Fix zoom-drift: during zoom animation, Leaflet transforms the overlayPane.
-        // Clear the canvas and reposition it so particles don't visually drift.
-        map.on('zoomanim', (e) => {{
-            // Clear canvas during animation — particles will be redrawn on 'move' after zoom settles
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }});
         map.on('zoomend', () => {{
             // Force canvas reposition after zoom finishes
             resizeCanvas();
