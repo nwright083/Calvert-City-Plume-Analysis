@@ -3172,11 +3172,12 @@ class CalvertCityPlumeEngine:
         .dep-toggle input:checked + .dep-toggle-slider {{ background:#2a7a4f; }}
         .dep-toggle input:checked + .dep-toggle-slider::before {{ background:#fff; transform:translateX(14px); }}
         .dep-info-btn {{ position:relative; cursor:help; font-size:10px; color:var(--text-muted); border:1px solid rgba(255,255,255,.25); border-radius:50%; width:14px; height:14px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }}
-        /* Custom instant-hover tooltip (native title= has a ~3-4s browser delay). */
-        .info-pop {{ display:none; position:absolute; top:20px; left:0; z-index:10000; width:270px; padding:10px 12px; background:#121214; color:#e5e7eb; border:1px solid rgba(255,255,255,.15); border-radius:8px; font-size:10px; line-height:1.55; font-weight:400; letter-spacing:normal; text-align:left; box-shadow:0 10px 28px rgba(0,0,0,.55); white-space:normal; pointer-events:none; }}
+        /* Custom instant-hover tooltip (native title= has a ~3-4s browser delay).
+           Reparented to <body> + position:fixed via JS so the panel's overflow:hidden
+           (collapse animation) can't clip it; JS sets left/top on hover. */
+        .info-pop {{ display:none; position:fixed; z-index:10000; width:270px; padding:10px 12px; background:#121214; color:#e5e7eb; border:1px solid rgba(255,255,255,.15); border-radius:8px; font-size:10px; line-height:1.55; font-weight:400; letter-spacing:normal; text-align:left; box-shadow:0 10px 28px rgba(0,0,0,.55); white-space:normal; pointer-events:none; }}
         .info-pop b {{ color:#fff; font-weight:600; }}
         .info-pop .ip-sep {{ display:block; height:6px; }}
-        .dep-info-btn:hover .info-pop {{ display:block; }}
         .dep-chem-pill {{ display:flex; align-items:center; gap:3px; font-size:9px; color:var(--text-muted); cursor:pointer; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:2px 6px; white-space:nowrap; }}
         .dep-chem-pill input {{ cursor:pointer; margin:0; }}
         .dep-chem-pill:has(input:checked) {{ border-color:rgba(255,255,255,.25); color:rgba(255,255,255,.8); }}
@@ -3593,6 +3594,31 @@ class CalvertCityPlumeEngine:
                 _partTog.addEventListener('change', (e) => {{ showParticles = e.target.checked; drawParticles(); }});
             }}
         }}
+
+        // ── Custom info tooltips ──
+        // Reparent each .info-pop to <body> so the panel's overflow:hidden (collapse animation)
+        // can't clip it, then position it as a fixed, viewport-clamped popup on hover. (The native
+        // title= attribute we replaced had a ~3-4s browser delay; this shows instantly.)
+        document.querySelectorAll('.dep-info-btn').forEach((btn) => {{
+            const pop = btn.querySelector('.info-pop');
+            if (!pop) return;
+            document.body.appendChild(pop);  // escape ancestor overflow clipping
+            const place = () => {{
+                pop.style.display = 'block';
+                const r = btn.getBoundingClientRect();
+                const pw = pop.offsetWidth, ph = pop.offsetHeight;
+                let left = r.left;
+                let top = r.bottom + 6;
+                if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+                if (left < 8) left = 8;
+                if (top + ph > window.innerHeight - 8) top = r.top - ph - 6;  // flip above if no room
+                if (top < 8) top = 8;
+                pop.style.left = left + 'px';
+                pop.style.top = top + 'px';
+            }};
+            btn.addEventListener('mouseenter', place);
+            btn.addEventListener('mouseleave', () => {{ pop.style.display = 'none'; }});
+        }});
 
         // ── Footprint gating lookup: (facName|chem|srcType) → file key ──
         // Built once when the deposition manifest loads. Used by airBandAtPoint() to
