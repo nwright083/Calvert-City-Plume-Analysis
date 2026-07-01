@@ -4111,19 +4111,19 @@ class CalvertCityPlumeEngine:
         const canvas = document.getElementById('particle-canvas');
         const ctx = canvas.getContext('2d');
         
-        // Canvas sits in the map container (NOT overlayPane) so Leaflet's zoom-pane transforms
-        // don't shift it — it always aligns with container coordinates.
-        map.getContainer().appendChild(canvas);
-        canvas.style.position = 'absolute';
-        canvas.style.zIndex = '350';  // above depPane(250) / overlayPane(400 default), below popupPane(700)
-        canvas.style.pointerEvents = 'none';
+        // Canvas lives in overlayPane so Leaflet manages its stacking (above depPane/airPane,
+        // below markerPane/popupPane). resizeCanvas() corrects the position each frame to keep
+        // particles locked to container coordinates despite the pane's CSS transform.
+        map.getPanes().overlayPane.appendChild(canvas);
 
         function resizeCanvas() {{
             const size = map.getSize();
             canvas.width = size.x;
             canvas.height = size.y;
-            canvas.style.left = '0';
-            canvas.style.top = '0';
+            const topLeft = map.containerPointToLayerPoint([0, 0]);
+            canvas.style.position = 'absolute';
+            canvas.style.left = topLeft.x + 'px';
+            canvas.style.top = topLeft.y + 'px';
         }}
         resizeCanvas();
         
@@ -5148,6 +5148,9 @@ class CalvertCityPlumeEngine:
         // batched fills grouped by color+opacity bucket, in-place viewport cull.
         function drawParticles() {{
             resizeCanvas();
+            const topLeft = map.containerPointToLayerPoint([0, 0]);
+            canvas.style.left = topLeft.x + 'px';
+            canvas.style.top  = topLeft.y + 'px';
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (!showParticles) return;
 
@@ -5155,16 +5158,15 @@ class CalvertCityPlumeEngine:
             const stackOpacity = getSandboxStackOpacity();
             const fugitiveOpacity = getSandboxFugitiveOpacity();
 
-            // One linear lat/lon→pixel calibration per frame using container coordinates
-            // (container coords are zoom-transform-independent — matches updateTooltip's hit test)
+            // One linear lat/lon→pixel calibration per frame (3 projections total)
             const c = map.getCenter();
-            const pC  = map.latLngToContainerPoint(c);
-            const pLo = map.latLngToContainerPoint(L.latLng(c.lat, c.lng + 0.01));
-            const pLa = map.latLngToContainerPoint(L.latLng(c.lat + 0.01, c.lng));
+            const pC  = map.latLngToLayerPoint(c);
+            const pLo = map.latLngToLayerPoint(L.latLng(c.lat, c.lng + 0.01));
+            const pLa = map.latLngToLayerPoint(L.latLng(c.lat + 0.01, c.lng));
             const pxPerLon = (pLo.x - pC.x) / 0.01;
             const pxPerLat = (pLa.y - pC.y) / 0.01;  // negative: north = up
-            const originX = pC.x;
-            const originY = pC.y;
+            const originX = pC.x - topLeft.x;
+            const originY = pC.y - topLeft.y;
 
             // Numeric viewport bounds — no LatLng alloc per particle
             const bounds = map.getBounds();
@@ -5405,15 +5407,17 @@ class CalvertCityPlumeEngine:
         }});
         map.on('zoom', drawParticles);
         map.on('zoomend', () => {{
-            // Force canvas reposition after zoom finishes
-            resizeCanvas();
-            drawParticles();
-            if (showDeposition) {{
-                // Force layer recreation so new zoom-based radius/blur opts are picked up
-                if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
-                lastDepUpdateTime = -999;
-                renderDepositionHeatmap(playbackTime);
-            }}
+            // Defer by one rAF so Leaflet's CSS transform on overlayPane has settled before
+            // we reposition the canvas. Eliminates zoom-drift without moving canvas out of pane.
+            requestAnimationFrame(() => {{
+                resizeCanvas();
+                drawParticles();
+                if (showDeposition) {{
+                    if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
+                    lastDepUpdateTime = -999;
+                    renderDepositionHeatmap(playbackTime);
+                }}
+            }});
         }});
         map.on('resize', () => {{
             resizeCanvas();
