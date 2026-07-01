@@ -4112,18 +4112,24 @@ class CalvertCityPlumeEngine:
         const ctx = canvas.getContext('2d');
         
         // Canvas lives in overlayPane so Leaflet manages its stacking (above depPane/airPane,
-        // below markerPane/popupPane). resizeCanvas() corrects the position each frame to keep
-        // particles locked to container coordinates despite the pane's CSS transform.
+        // below markerPane/popupPane).
         map.getPanes().overlayPane.appendChild(canvas);
+        canvas.style.position = 'absolute';
+        canvas.style.left = '0';
+        canvas.style.top = '0';
 
+        // Position the canvas the SAME way Leaflet positions its own layers: via a translate3d
+        // transform (L.DomUtil.setPosition), NOT via left/top. The overlayPane is moved by a GPU
+        // transform; if we moved the canvas with left/top instead, the two would composite on
+        // different timelines during zoom/pan and the particles would drift off the map (and stay
+        // offset until the next repaint). Using a transform keeps the canvas locked to the pane on
+        // the compositor. Canvas top-left is pinned to container [0,0], so a container point maps
+        // directly to a canvas pixel in drawParticles().
         function resizeCanvas() {{
             const size = map.getSize();
-            canvas.width = size.x;
-            canvas.height = size.y;
-            const topLeft = map.containerPointToLayerPoint([0, 0]);
-            canvas.style.position = 'absolute';
-            canvas.style.left = topLeft.x + 'px';
-            canvas.style.top = topLeft.y + 'px';
+            if (canvas.width !== size.x) canvas.width = size.x;
+            if (canvas.height !== size.y) canvas.height = size.y;
+            L.DomUtil.setPosition(canvas, map.containerPointToLayerPoint([0, 0]));
         }}
         resizeCanvas();
         
@@ -5147,26 +5153,13 @@ class CalvertCityPlumeEngine:
         // Optimized: 3 Leaflet projections per frame (was ~4000), zero LatLng allocs,
         // batched fills grouped by color+opacity bucket, in-place viewport cull.
         function drawParticles() {{
-            resizeCanvas();
-            const topLeft = map.containerPointToLayerPoint([0, 0]);
-            canvas.style.left = topLeft.x + 'px';
-            canvas.style.top  = topLeft.y + 'px';
+            resizeCanvas();  // pins canvas top-left to container [0,0] via transform
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (!showParticles) return;
 
             const liveSize = getSandboxSize();
             const stackOpacity = getSandboxStackOpacity();
             const fugitiveOpacity = getSandboxFugitiveOpacity();
-
-            // One linear lat/lon→pixel calibration per frame (3 projections total)
-            const c = map.getCenter();
-            const pC  = map.latLngToLayerPoint(c);
-            const pLo = map.latLngToLayerPoint(L.latLng(c.lat, c.lng + 0.01));
-            const pLa = map.latLngToLayerPoint(L.latLng(c.lat + 0.01, c.lng));
-            const pxPerLon = (pLo.x - pC.x) / 0.01;
-            const pxPerLat = (pLa.y - pC.y) / 0.01;  // negative: north = up
-            const originX = pC.x - topLeft.x;
-            const originY = pC.y - topLeft.y;
 
             // Numeric viewport bounds — no LatLng alloc per particle
             const bounds = map.getBounds();
@@ -5178,10 +5171,10 @@ class CalvertCityPlumeEngine:
             document.getElementById('active-count').textContent = activeList.length;
 
             // ── Particle draw loop ──
-            // (Rewritten: the previous "bucketed" version referenced undefined `pt`,
-            //  `bkt`, and `baseR` — it threw on the first particle every frame and was
-            //  swallowed by tick()'s try/catch, so NO particles ever rendered. This is a
-            //  direct, correct draw using the per-frame linear lat/lon→pixel calibration.)
+            // Each particle is projected exactly with map.latLngToContainerPoint — the same
+            // projection Leaflet uses for its (never-drifting) footprints/markers — so particles
+            // stay locked to the map at every zoom/pan. Canvas top-left = container [0,0] (set via
+            // transform in resizeCanvas), so a container point IS a canvas pixel.
             const baseR = Math.max(1.0, liveSize);
             for (let i = 0; i < activeList.length; i++) {{
                 const p = activeList[i];
@@ -5202,11 +5195,12 @@ class CalvertCityPlumeEngine:
                 const hBonus = Math.min(1.2, p.ht / 250.0);
                 const radius = Math.max(0.8, Math.min(liveSize * 2.5, baseR * (1.0 + hBonus)));
 
-                // Linear lat/lon→pixel using the per-frame calibration (no per-particle projection)
+                // Exact per-particle projection (container point = canvas pixel), + small jitter
                 const jx = (jHash(i, p.fac) - 0.5) * 2.5;
                 const jy = (jHash(i + 7919, p.fac) - 0.5) * 2.5;
-                const px = originX + (p.lon - c.lng) * pxPerLon + jx;
-                const py = originY + (p.lat - c.lat) * pxPerLat + jy;
+                const cp = map.latLngToContainerPoint(L.latLng(p.lat, p.lon));
+                const px = cp.x + jx;
+                const py = cp.y + jy;
 
                 // Dark contrast halo under each particle so light facility colors
                 // (cyan/yellow/lime) stay visible on the light Voyager basemap.
@@ -5407,17 +5401,15 @@ class CalvertCityPlumeEngine:
         }});
         map.on('zoom', drawParticles);
         map.on('zoomend', () => {{
-            // Defer by one rAF so Leaflet's CSS transform on overlayPane has settled before
-            // we reposition the canvas. Eliminates zoom-drift without moving canvas out of pane.
-            requestAnimationFrame(() => {{
-                resizeCanvas();
-                drawParticles();
-                if (showDeposition) {{
-                    if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
-                    lastDepUpdateTime = -999;
-                    renderDepositionHeatmap(playbackTime);
-                }}
-            }});
+            // Canvas is transform-positioned + particles are projected exactly, so a plain redraw
+            // stays aligned. (The tick loop also redraws every frame; this keeps paused pans crisp.)
+            resizeCanvas();
+            drawParticles();
+            if (showDeposition) {{
+                if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
+                lastDepUpdateTime = -999;
+                renderDepositionHeatmap(playbackTime);
+            }}
         }});
         map.on('resize', () => {{
             resizeCanvas();
