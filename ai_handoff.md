@@ -434,6 +434,24 @@ AND the `--regen-html` fast path at ~5860, so they never diverge):
 - No JS logic changes needed otherwise — markers/list/filters/particles are all data-driven off
   `PLUME_DATA.facilities`.
 
+## ✅ 2026-07-01: Removed Simulation Sandbox + added Veterinary Clinic landmarks
+**Sandbox removed:** the "⚙ Simulation Sandbox" panel (density/size/opacity/footprint-opacity sliders)
++ its `initSandbox()` IIFE are deleted so viewers can't alter the model. The `getSandbox*()` getters
+already null-guard → they return their built-in defaults (density 1.0, size `BASE_PARTICLE_RADIUS_PIXELS`,
+opacities 0.70), and `footprintOpacity` stays 0.45. `.sandbox-*` CSS left in place (harmless, unused).
+
+**Veterinary clinics (LOCATIONS layer):** 15 clinics in `VET_CLINICS` (module-level, near
+`DEFAULT_ACTIVE_CHEMICALS`; name/address/lat/lon). Geocoded via OSM Nominatim + US Census geocoder
+(3 rural ones). Embedded as `const VET_CLINICS` (next to depositionArchive). Rendered as anchored
+Leaflet markers (markerPane → NO zoom drift) in a `vetClinicLayer` LayerGroup, custom teal-pin +
+white-paw + red-cross SVG divIcon (`vetIcon`, `.vet-clinic-divicon`). Click → popup (`vetPopupHtml`)
+with name, address, and **soil deposition at that point** via `soilDepAtPoint(lat,lon)` (reuses
+`depHitIndex` drawn combined dep footprints + `depPointInRing` + `fmtConc`; risk from min band). New
+sidebar **LOCATIONS** collapsible (under LAYERS) with a **Veterinary Clinics** toggle
+(`vet-clinics-toggle`, default on) + collapse arrow (`locations-toggle`/`-body`/`-arrow`). To add more
+landmark types later: extend the LOCATIONS body + add another LayerGroup. Particle density unchanged
+(~1500); file still ~33 MB.
+
 ## ⚠️ OPEN ITEMS (do in the particle-rework pass)
 1. **Further slim the ~33 MB embed** — depositionArchive is still ~27 MB of GeoJSON. Next levers (riskier,
    affect visuals/hover/gating): decimate contour vertices harder, round coords to 3 dp, or embed only the

@@ -24,6 +24,28 @@ DEFAULT_ACTIVE_CHEMICALS = [
     "CHLORINE", "AMMONIA"
 ]
 
+# --- LANDMARK LOCATIONS: VETERINARY CLINICS ---
+# Public-facing landmarks shown on the map (toggleable under LAYERS → LOCATIONS). Coordinates were
+# geocoded from the street addresses (OpenStreetMap Nominatim; US Census geocoder for the few
+# rural addresses Nominatim missed). Rendered as anchored Leaflet markers (no zoom drift).
+VET_CLINICS = [
+    {"name": "Ceglinski Animal Clinic",         "address": "5401 Blandville Rd, Paducah, KY 42001",       "lat": 37.05089, "lon": -88.67557},
+    {"name": "Calvert City Animal Hospital",    "address": "4267 US-62, Calvert City, KY 42029",          "lat": 37.00378, "lon": -88.34534},
+    {"name": "Lone Oak Animal Clinic",          "address": "125 Augusta Ave, Paducah, KY 42003",          "lat": 37.03694, "lon": -88.66204},
+    {"name": "Heartland Veterinary Hospital",   "address": "3137 Olivet Church Rd, Paducah, KY 42001",    "lat": 37.07749, "lon": -88.69746},
+    {"name": "Lakeland Animal Hospital",        "address": "2044 US-641, Benton, KY 42025",               "lat": 36.84647, "lon": -88.34991},
+    {"name": "Companion Animal Hospital",       "address": "1831 US-641, Benton, KY 42025",               "lat": 36.84823, "lon": -88.34994},
+    {"name": "Animal Kare Center",              "address": "2625 Olivet Church Rd, Paducah, KY 42001",    "lat": 37.06824, "lon": -88.70188},
+    {"name": "Progressive Animal Healthcare",   "address": "2630 James Sanders Blvd, Paducah, KY 42001",  "lat": 37.08079, "lon": -88.68488},
+    {"name": "Cummings Veterinary Clinic",      "address": "3800 Clarks River Rd, Paducah, KY 42003",     "lat": 37.04681, "lon": -88.55789},
+    {"name": "Flanary Veterinary Clinic",       "address": "200 Eagle Nest Dr, Paducah, KY 42003",        "lat": 37.00849, "lon": -88.50918},
+    {"name": "Lyon County Animal Hospital",     "address": "638 Trade Ave, Eddyville, KY 42038",          "lat": 37.08869, "lon": -88.08644},
+    {"name": "Paducah Veterinary Clinic",       "address": "3205 Central Ave, Paducah, KY 42001",         "lat": 37.07613, "lon": -88.64278},
+    {"name": "Animal Wellness Center",          "address": "120 Cave Thomas Dr, Paducah, KY 42001",       "lat": 37.03130, "lon": -88.67080},
+    {"name": "Veterinary Institute of Paducah", "address": "3526 Park Plaza Rd, Paducah, KY 42001",       "lat": 37.08201, "lon": -88.66502},
+    {"name": "Equine Vet Services",             "address": "4025 Coleman Cut Rd, Paducah, KY 42001",      "lat": 36.96969, "lon": -88.76676},
+]
+
 # --- CHEMICAL-SPECIFIC DEPOSITION PROPERTIES DATABASE ---
 # This table stores per-chemical physical parameters used for dry deposition calculations.
 #
@@ -2506,6 +2528,9 @@ class CalvertCityPlumeEngine:
         # otherwise removing them would shrink maxFacLbs and inflate the particle density.
         max_fac_lbs_ref = round(float(getattr(self, "max_facility_lbs", 0.0) or 0.0), 4)
 
+        # Landmark locations (veterinary clinics) embedded for the map's LOCATIONS layer.
+        vet_clinics_json = json.dumps(VET_CLINICS, separators=(',', ':'))
+
         html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3230,6 +3255,22 @@ class CalvertCityPlumeEngine:
         .info-pop {{ display:none; position:fixed; z-index:10000; width:270px; padding:10px 12px; background:#121214; color:#e5e7eb; border:1px solid rgba(255,255,255,.15); border-radius:8px; font-size:10px; line-height:1.55; font-weight:400; letter-spacing:normal; text-align:left; box-shadow:0 10px 28px rgba(0,0,0,.55); white-space:normal; pointer-events:none; }}
         .info-pop b {{ color:#fff; font-weight:600; }}
         .info-pop .ip-sep {{ display:block; height:6px; }}
+        /* LOCATIONS collapsible section */
+        .loc-toggle-btn {{ display:flex; align-items:center; justify-content:space-between; width:100%; background:none; border:none; padding:0; cursor:pointer; color:var(--text-muted); font-size:10px; font-weight:600; letter-spacing:.05em; }}
+        .loc-toggle-btn:hover {{ color:var(--text-primary); }}
+        .loc-arrow {{ font-size:8px; transition:transform .2s; transform:rotate(-90deg); }}
+        .loc-arrow.expanded {{ transform:rotate(0deg); }}
+        .loc-body {{ overflow:hidden; max-height:0; opacity:0; transition:max-height .3s ease, opacity .25s ease; }}
+        .loc-body.open {{ max-height:300px; opacity:1; }}
+        .loc-swatch {{ width:11px; height:11px; border-radius:50%; flex-shrink:0; display:inline-block; }}
+        .loc-swatch-vet {{ background:#0d9488; border:1.5px solid #fff; box-shadow:0 0 3px rgba(0,0,0,.4); }}
+        /* Vet clinic marker (SVG divIcon has no box; keep pointer cursor) */
+        .vet-clinic-divicon {{ cursor:pointer; }}
+        .vet-clinic-divicon svg {{ display:block; filter:drop-shadow(0 2px 3px rgba(0,0,0,.45)); }}
+        .vet-pop {{ font-size:12px; color:#f3f4f6; min-width:210px; max-width:250px; padding:11px 15px 12px 15px; box-sizing:border-box; }}
+        .vet-pop .vp-title {{ font-weight:600; font-size:13px; color:#fff; margin-bottom:3px; padding-right:16px; line-height:1.35; }}
+        .vet-pop .vp-addr {{ color:#9ca3af; font-size:11px; margin-bottom:8px; line-height:1.4; }}
+        .vet-pop .vp-dep {{ font-size:11px; line-height:1.55; border-top:1px solid rgba(255,255,255,.12); padding-top:7px; }}
         .dep-chem-pill {{ display:flex; align-items:center; gap:3px; font-size:9px; color:var(--text-muted); cursor:pointer; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:2px 6px; white-space:nowrap; }}
         .dep-chem-pill input {{ cursor:pointer; margin:0; }}
         .dep-chem-pill:has(input:checked) {{ border-color:rgba(255,255,255,.25); color:rgba(255,255,255,.8); }}
@@ -3324,71 +3365,27 @@ class CalvertCityPlumeEngine:
                     </div>
                 </div>
 
-                <!-- ══ Simulation Sandbox Control Panel ══ -->
-                <div class="sandbox-section">
-                    <button class="sandbox-toggle-btn" id="sandbox-toggle" type="button">
-                        <span>⚙ Simulation Sandbox</span>
-                        <span class="sandbox-toggle-arrow" id="sandbox-arrow">▼</span>
+                <!-- ══ Locations (landmark layers) ══ -->
+                <div class="divider"></div>
+                <div style="margin-top:12px;">
+                    <button class="loc-toggle-btn" id="locations-toggle" type="button">
+                        <span>LOCATIONS</span>
+                        <span class="loc-arrow expanded" id="locations-arrow">▼</span>
                     </button>
-                    <div class="sandbox-body" id="sandbox-body">
-
-                        <!-- Plume Density Multiplier -->
-                        <div class="sandbox-group">
-                            <div class="sandbox-label">
-                                <span>PLUME DENSITY MULTIPLIER</span>
-                                <span class="sandbox-val" id="densityVal">1.0×</span>
-                            </div>
-                            <input type="range" class="sandbox-slider" id="densitySlider"
-                                   min="0.1" max="5.0" step="0.1" value="1.0">
+                    <div class="loc-body open" id="locations-body">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+                            <span style="font-size:11px;color:var(--text-primary);display:flex;align-items:center;gap:6px;">
+                                <span class="loc-swatch loc-swatch-vet"></span>Veterinary Clinics
+                                <span style="color:var(--text-muted);font-size:9px;" id="vet-count"></span>
+                            </span>
+                            <label class="dep-toggle"><input type="checkbox" id="vet-clinics-toggle" checked><span class="dep-toggle-slider"></span></label>
                         </div>
-
-                        <!-- Particle Lifespan -->
-                        <!-- Particle Size -->
-                        <div class="sandbox-group">
-                            <div class="sandbox-label">
-                                <span>PARTICLE SIZE</span>
-                                <span class="sandbox-val" id="sizeVal">{BASE_PARTICLE_RADIUS_PIXELS}px</span>
-                            </div>
-                            <input type="range" class="sandbox-slider" id="sizeSlider"
-                                   min="1" max="10" step="0.5" value="{BASE_PARTICLE_RADIUS_PIXELS}">
-                        </div>
-
-                        <div class="sandbox-divider"></div>
-
-                        <!-- Stack Particle Opacity -->
-                        <div class="sandbox-group">
-                            <div class="sandbox-label">
-                                <span>STACK PARTICLE OPACITY</span>
-                                <span class="sandbox-val" id="stackOpacityVal">0.70</span>
-                            </div>
-                            <input type="range" class="sandbox-slider" id="stackOpacitySlider"
-                                   min="0.05" max="1.0" step="0.05" value="0.70">
-                        </div>
-
-                        <!-- Fugitive Particle Opacity -->
-                        <div class="sandbox-group">
-                            <div class="sandbox-label">
-                                <span>FUGITIVE PARTICLE OPACITY</span>
-                                <span class="sandbox-val" id="fugitiveOpacityVal">0.70</span>
-                            </div>
-                            <input type="range" class="sandbox-slider" id="fugitiveOpacitySlider"
-                                   min="0.05" max="1.0" step="0.05" value="0.70">
-                        </div>
-
-                        <div class="sandbox-divider"></div>
-
-                        <!-- Footprint (deposition/air) Opacity -->
-                        <div class="sandbox-group">
-                            <div class="sandbox-label">
-                                <span>FOOTPRINT OPACITY</span>
-                                <span class="sandbox-val" id="footprintOpacityVal">0.45</span>
-                            </div>
-                            <input type="range" class="sandbox-slider" id="footprintOpacitySlider"
-                                   min="0.05" max="0.95" step="0.01" value="0.45">
-                        </div>
-
                     </div>
                 </div>
+
+                <!-- Simulation Sandbox removed: particle motion/appearance are fixed so viewers
+                     can't alter the model. Defaults live in the getSandbox*() getters + the
+                     footprintOpacity constant. -->
             </div>
         </div>
 
@@ -3469,6 +3466,7 @@ class CalvertCityPlumeEngine:
     <script>
         const historicalSimulationArchive = {archive_json_data};
         const depositionArchive = {dep_archive_json};
+        const VET_CLINICS = {vet_clinics_json};
     </script>
 
     <!-- UI and Rendering Engine Script -->
@@ -4353,6 +4351,86 @@ class CalvertCityPlumeEngine:
             facilityMarkers[fac.id] = marker;
         }});
 
+        // ── Veterinary clinic landmarks (LOCATIONS layer) ──
+        // Anchored Leaflet markers (markerPane) → no zoom/pan drift. Toggleable as a group.
+        // Custom teal pin + white paw + red medical cross SVG (an original take on the vet paw icon).
+        const VET_CLINIC_SVG =
+            '<svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg">' +
+            '<path d="M14 35 C14 35 25.5 20.5 25.5 13 A11.5 11.5 0 1 0 2.5 13 C2.5 20.5 14 35 14 35 Z" fill="#0d9488" stroke="#ffffff" stroke-width="1.6"/>' +
+            '<ellipse cx="14" cy="15.6" rx="4.3" ry="3.5" fill="#ffffff"/>' +
+            '<circle cx="8.6" cy="10.8" r="1.7" fill="#ffffff"/>' +
+            '<circle cx="12.1" cy="8.4" r="1.7" fill="#ffffff"/>' +
+            '<circle cx="15.9" cy="8.4" r="1.7" fill="#ffffff"/>' +
+            '<circle cx="19.4" cy="10.8" r="1.7" fill="#ffffff"/>' +
+            '<rect x="13.2" y="13.6" width="1.6" height="4.2" rx="0.4" fill="#e11d48"/>' +
+            '<rect x="11.9" y="14.9" width="4.2" height="1.6" rx="0.4" fill="#e11d48"/>' +
+            '</svg>';
+        const vetIcon = L.divIcon({{
+            className: 'vet-clinic-divicon',
+            html: VET_CLINIC_SVG,
+            iconSize: [28, 36],
+            iconAnchor: [14, 35],     // pin tip sits on the coordinate
+            popupAnchor: [0, -30]
+        }});
+
+        // Soil deposition at a point, from the currently-drawn combined soil footprints (depHitIndex).
+        // Returns {{maxVal, minBand, chem}} or null if the point is outside every dep contour this hour.
+        function soilDepAtPoint(lat, lon) {{
+            let maxVal = 0, minBand = 99, chem = '', hit = false;
+            for (const h of depHitIndex) {{
+                if (h.layer !== 'dep' || h.value == null) continue;
+                if (!depPointInRing(lat, lon, h.ring)) continue;
+                hit = true;
+                if (h.value > maxVal) {{ maxVal = h.value; chem = h.chem; }}
+                if (h.band < minBand) minBand = h.band;
+            }}
+            return hit ? {{ maxVal: maxVal, minBand: minBand, chem: chem }} : null;
+        }}
+
+        function vetPopupHtml(cl) {{
+            const dep = soilDepAtPoint(cl.lat, cl.lon);
+            let depHtml;
+            if (dep) {{
+                let risk = 'Low', rc = '#22c55e';
+                if (dep.minBand <= 1) {{ risk = 'Elevated'; rc = '#ef4444'; }}
+                else if (dep.minBand === 2) {{ risk = 'Moderate'; rc = '#f59e0b'; }}
+                depHtml = 'Soil deposition here: <strong>' + fmtConc(dep.maxVal, 'm²') + '</strong><br/>'
+                        + 'Level: <strong style="color:' + rc + '">' + risk + '</strong>'
+                        + (dep.chem ? ' <span style="color:#9ca3af">(' + dep.chem.toLowerCase() + ')</span>' : '');
+            }} else {{
+                depHtml = '<span style="color:#9ca3af">No modeled soil deposition at this location this hour (outside the deposition footprint).</span>';
+            }}
+            return '<div class="vet-pop">'
+                 + '<div class="vp-title">🐾 ' + cl.name + '</div>'
+                 + '<div class="vp-addr">' + cl.address + '</div>'
+                 + '<div class="vp-dep">' + depHtml + '</div>'
+                 + '</div>';
+        }}
+
+        const vetClinicLayer = L.layerGroup();
+        (typeof VET_CLINICS !== 'undefined' ? VET_CLINICS : []).forEach(cl => {{
+            const m = L.marker([cl.lat, cl.lon], {{ icon: vetIcon, title: cl.name }});
+            m.bindPopup(() => vetPopupHtml(cl), {{ maxWidth: 260, className: 'vet-popup' }});
+            vetClinicLayer.addLayer(m);
+        }});
+        vetClinicLayer.addTo(map);   // shown by default; toggleable
+        {{ const _vc = document.getElementById('vet-count'); if (_vc) _vc.textContent = '(' + ((typeof VET_CLINICS !== 'undefined') ? VET_CLINICS.length : 0) + ')'; }}
+
+        // LOCATIONS section wiring: Veterinary Clinics on/off + collapsible dropdown
+        {{
+            const vt = document.getElementById('vet-clinics-toggle');
+            if (vt) vt.addEventListener('change', e => {{
+                if (e.target.checked) vetClinicLayer.addTo(map); else map.removeLayer(vetClinicLayer);
+            }});
+            const lt = document.getElementById('locations-toggle');
+            const lb = document.getElementById('locations-body');
+            const la = document.getElementById('locations-arrow');
+            if (lt && lb && la) lt.addEventListener('click', () => {{
+                const open = lb.classList.toggle('open');
+                la.classList.toggle('expanded', open);
+            }});
+        }}
+
         // Legend construction with collapsible dropdowns and total lbs display
         const legendContainer = document.getElementById('facility-legend');
         PLUME_DATA.facilities.forEach(fac => {{
@@ -4674,41 +4752,9 @@ class CalvertCityPlumeEngine:
         }}
         */
 
-        // ── Sandbox UI wiring ──
-        (function initSandbox() {{
-            const toggle = document.getElementById('sandbox-toggle');
-            const body = document.getElementById('sandbox-body');
-            const arrow = document.getElementById('sandbox-arrow');
-            toggle.addEventListener('click', () => {{
-                const open = body.classList.toggle('open');
-                arrow.classList.toggle('expanded', open);
-            }});
-
-            // Wire each slider to its value display
-            const wirings = [
-                {{ slider: 'densitySlider',         display: 'densityVal',         fmt: v => v.toFixed(1) + '×' }},
-                {{ slider: 'sizeSlider',            display: 'sizeVal',            fmt: v => v.toFixed(1) + 'px' }},
-                {{ slider: 'stackOpacitySlider',    display: 'stackOpacityVal',    fmt: v => v.toFixed(2) }},
-                {{ slider: 'fugitiveOpacitySlider', display: 'fugitiveOpacityVal', fmt: v => v.toFixed(2) }},
-                {{ slider: 'footprintOpacitySlider',display: 'footprintOpacityVal',fmt: v => v.toFixed(2) }}
-            ];
-            wirings.forEach(({{ slider, display, fmt }}) => {{
-                const sl = document.getElementById(slider);
-                const dp = document.getElementById(display);
-                if (sl && dp) {{
-                    sl.addEventListener('input', () => {{ dp.textContent = fmt(parseFloat(sl.value)); }});
-                }}
-            }});
-
-            // Footprint opacity drives the deposition/air layers live
-            const fpSlider = document.getElementById('footprintOpacitySlider');
-            if (fpSlider) {{
-                fpSlider.addEventListener('input', () => {{
-                    footprintOpacity = parseFloat(fpSlider.value);
-                    refreshDepLayers();
-                }});
-            }}
-        }})();
+        // ── Sandbox UI removed ── particle motion/size/opacity + footprint opacity are now fixed
+        // (viewers can't alter the model). The getSandbox*() getters return their built-in defaults
+        // when the sliders are absent, and footprintOpacity stays at its initial 0.45.
 
         // ── Collapsible Panel Toggle System ──
         (function initPanelToggles() {{
