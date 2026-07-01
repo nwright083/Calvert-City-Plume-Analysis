@@ -410,6 +410,30 @@ tooltip (browsers delay it 3–4 s) with a **custom instant CSS popup** (`.dep-i
 `:hover`, z-index 10000) that explains all three layers AND how they differ (deposition accumulates /
 air per-hour / particles animate continuously; footprints = HYSPLIT contours, particles = HYSPLIT wind).
 
+## ✅ 2026-07-01: Embed ONLY modeled chemicals + drop unmodeled-only facilities
+Non-default TRI chemicals were only modeled by the old particle method and could be toggled on to
+flood the UI. Now the embed includes ONLY `DEFAULT_ACTIVE_CHEMICALS` (the 9 HYSPLIT-modeled species);
+all other TRI compounds are dropped so they can't be shown. A facility that emits none of the 9 is
+dropped from the map + point-source list. **Nothing is deleted from source** — the full `FACILITIES`
+dict + TRI CSV stay; to re-add, put a chemical back in `DEFAULT_ACTIVE_CHEMICALS` and rerun.
+
+Implementation — one shared helper `build_embedded_facilities()` (used by BOTH `compile_data_for_json`
+AND the `--regen-html` fast path at ~5860, so they never diverge):
+- Keeps chemicals whose name ∈ `DEFAULT_ACTIVE_CHEMICALS`; drops facilities with none.
+- Re-indexes kept facilities to dense ids 0..M-1 and records `self.orig_to_new_fac_id`.
+- `build_deposition_archive` remaps each manifest **entry**'s `fac_id` via that map (JS reads
+  `entry.fac_id` only from the manifest, lines ~3800; combined entries stay `fac_id:-1`). On-disk
+  manifests keep original ids — remap is in-memory per build (idempotent across regens).
+- **Result: 12 → 8 facilities.** Dropped: CC Metals & Alloys, Sekisui, Wacker (0 modeled chems),
+  Carbide Industries (only the mock `"SIMULATED POINT-SOURCE SPECIES"`, no HYSPLIT footprint).
+- ⚠️ **Density gotcha (fixed):** JS spawn ratio = `chem_lbs / maxFacLbs`, and `maxFacLbs` was the max
+  over EMBEDDED facilities' `total_lbs`. Dropping high-emission facilities (one had 720,080 lbs) shrank
+  it → ~3× more particles. Fix: `total_lbs` stays the FULL per-facility total (not modeled-only), AND
+  the density anchor is embedded from Python (`{max_fac_lbs_ref}` = `self.max_facility_lbs`, max over
+  ALL 12) so `const maxFacLbs = Math.max({max_fac_lbs_ref}, ...)`. Particle density unchanged (~1500).
+- No JS logic changes needed otherwise — markers/list/filters/particles are all data-driven off
+  `PLUME_DATA.facilities`.
+
 ## ⚠️ OPEN ITEMS (do in the particle-rework pass)
 1. **Further slim the ~33 MB embed** — depositionArchive is still ~27 MB of GeoJSON. Next levers (riskier,
    affect visuals/hover/gating): decimate contour vertices harder, round coords to 3 dp, or embed only the

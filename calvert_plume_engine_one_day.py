@@ -2117,6 +2117,57 @@ class CalvertCityPlumeEngine:
 
         return regional_monitor_data
 
+    def build_embedded_facilities(self) -> List[Dict[str, Any]]:
+        """Build the facility objects embedded in the page.
+
+        Only chemicals in DEFAULT_ACTIVE_CHEMICALS (the HYSPLIT-modeled set) are embedded — the
+        other TRI compounds are modeled only by the old particle method and are dropped so they
+        can't be toggled on and flood the UI. A facility that emits none of the modeled chemicals
+        is omitted entirely (removed from the map + point-source list). Kept facilities are
+        re-indexed to a dense 0..M-1 range and `self.orig_to_new_fac_id` records
+        {original_fac_id: new_id} so build_deposition_archive() can remap the deposition manifest's
+        fac_id to match.
+
+        NOTHING is deleted from the source config/TRI data — the full FACILITIES dict and TRI CSV
+        stay intact. To re-enable a chemical or facility later, add its chemical name to
+        DEFAULT_ACTIVE_CHEMICALS (and rerun); this filter picks it up automatically.
+
+        Used by BOTH the full-pipeline compile path and the --regen-html fast path so the embedded
+        facilities (and therefore the fac_id mapping) are always identical.
+        """
+        default_set = {c.strip().upper() for c in DEFAULT_ACTIVE_CHEMICALS}
+        compiled = []
+        orig_to_new = {}
+        for fac in self.facilities:
+            tri_data = self.get_facility_releases(fac["name"])
+            releases = tri_data.get("releases", [])
+            modeled = [c for c in releases if c.get("chemical", "").strip().upper() in default_set]
+            if not modeled:
+                continue  # no modeled chemicals → drop this facility from the map + list
+            new_id = len(compiled)
+            orig_to_new[fac["id"]] = new_id
+            compiled.append({
+                "id": new_id,
+                "name": fac["name"],
+                "lat": fac["lat"],
+                "lon": fac["lon"],
+                "height": fac["height"],
+                "color": fac["color"],
+                "tri_id": fac["tri_id"],
+                "tri_name": tri_data.get("fac_name", fac["name"]),
+                "chemicals": modeled,
+                # total_lbs stays the facility's FULL TRI total (all chemicals), not just the
+                # modeled subset: it's the facility's real emission figure AND the frontend's
+                # particle-density scaling reference (maxFacLbs). Using the modeled-only sum here
+                # would shrink maxFacLbs and inflate spawn counts, changing the particle density.
+                "total_lbs": sum(c.get("total_lbs", 0.0) for c in releases),
+                "schedule": fac.get("schedule", "continuous"),
+            })
+        self.orig_to_new_fac_id = orig_to_new
+        dropped = len(self.facilities) - len(compiled)
+        print(f"Embedded facilities: {len(compiled)} kept, {dropped} dropped (no modeled chemicals).")
+        return compiled
+
     def compile_data_for_json(self, raw_particles: Dict[str, Dict[int, List[Dict[str, Any]]]], deposition_data: Dict[int, List[Dict[str, float]]] = None) -> Dict[str, Any]:
         """
         Compile facilities list and hourly simulation timelines into a JavaScript-friendly structure.
@@ -2135,26 +2186,9 @@ class CalvertCityPlumeEngine:
         self.regional_monitor_data = self.process_ambient_monitors()
 
         
-        # Compile facility variables (merging EPA API/fallback data)
-        compiled_facilities = []
-        for idx, fac in enumerate(self.facilities):
-            tri_data = self.get_facility_releases(fac["name"])
-            releases = tri_data.get("releases", [])
-            total_lbs = sum(chem.get("total_lbs", 0.0) for chem in releases)
-            compiled_facilities.append({
-                "id": fac["id"],
-                "name": fac["name"],
-                "lat": fac["lat"],
-                "lon": fac["lon"],
-                "height": fac["height"],
-                "color": fac["color"],
-                "tri_id": fac["tri_id"],
-                "tri_name": tri_data.get("fac_name", fac["name"]),
-                "chemicals": releases,
-                "total_lbs": total_lbs,
-                "schedule": fac.get("schedule", "continuous")
-            })
-            
+        # Compile facility variables (modeled-chemicals-only, dropped-empties, re-indexed).
+        compiled_facilities = self.build_embedded_facilities()
+
         # Build internal timeline (used only for wind vector extraction, not serialized)
         timeline = [[] for _ in range(25)]
         
@@ -2410,6 +2444,18 @@ class CalvertCityPlumeEngine:
                     manifest = json.load(f)
             except Exception:
                 continue
+
+            # Remap per-facility entry fac_id to the re-indexed embedded facility ids so the
+            # frontend's activeFacilities/activeChemicals lookups (keyed by the embedded id) line up
+            # with the deposition hover attribution. The on-disk manifest keeps original ids; this is
+            # an in-memory remap only. Combined entries (fac_id = -1) are left as-is. (Removed
+            # facilities have no modeled chemicals, hence no per-facility entries, so none are lost.)
+            remap = getattr(self, "orig_to_new_fac_id", {}) or {}
+            if remap:
+                for entry in manifest.get("entries", []):
+                    if entry.get("fac_id") in remap:
+                        entry["fac_id"] = remap[entry["fac_id"]]
+
             files = {}
             for entry in manifest.get("entries", []) + manifest.get("combined_entries", []):
                 fpath = os.path.join(date_dir, entry["file"])
@@ -2453,6 +2499,12 @@ class CalvertCityPlumeEngine:
 
         # Deposition GeoJSON embedded inline (file:// blocks fetch of local files)
         dep_archive_json = json.dumps(self.build_deposition_archive(list(master_archive.keys())), separators=(',', ':'))
+
+        # Particle-density anchor: the max facility total over ALL facilities (incl. any dropped for
+        # having no modeled chemicals). Embedded so the frontend's spawn ratio (chem_lbs / maxFacLbs)
+        # is stable even though some high-emission facilities are no longer in the embedded list —
+        # otherwise removing them would shrink maxFacLbs and inflate the particle density.
+        max_fac_lbs_ref = round(float(getattr(self, "max_facility_lbs", 0.0) or 0.0), 4)
 
         html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -4527,7 +4579,10 @@ class CalvertCityPlumeEngine:
         const MAX_WIND_PER_HR = 0.18;           // Raised from 0.10 to allow real HYSPLIT transport distances
         
         // Find max emissions for proportional spawning
-        const maxFacLbs = Math.max(...PLUME_DATA.facilities.map(f => f.total_lbs || 1), 1);
+        // Density anchor is the max facility total over ALL facilities (including any dropped for
+        // having no modeled chemicals) — embedded from Python so spawn density is stable regardless
+        // of which facilities are shown. Falls back to the max over embedded facilities.
+        const maxFacLbs = Math.max({max_fac_lbs_ref}, ...PLUME_DATA.facilities.map(f => f.total_lbs || 1), 1);
         
         let particles = [];           // Sandbox simulation particles
         let nextSandboxId = 0;        // Stable unique ID generator for sandbox particles
@@ -5844,29 +5899,15 @@ if __name__ == "__main__":
                         num_dates = len(master_archive)
                         print(f"Successfully extracted archive with {num_dates} date(s) of simulation data.")
                         
-                        # Rebuild and inject updated facilities metadata (e.g. schedules, coords, colors)
+                        # Rebuild and inject updated facilities metadata (e.g. schedules, coords, colors).
+                        # Uses the SAME helper as the full pipeline so the modeled-only filtering,
+                        # dropped-empty facilities, re-indexed ids, AND the fac_id remap map are
+                        # identical — the deposition manifest fac_id remap in build_deposition_archive
+                        # depends on this consistency.
                         for date_key in master_archive:
                             if "plumes" in master_archive[date_key]:
                                 plumes = master_archive[date_key]["plumes"]
-                                updated_facilities = []
-                                for fac in pipeline.facilities:
-                                    tri_data = pipeline.get_facility_releases(fac["name"])
-                                    releases = tri_data.get("releases", [])
-                                    total_lbs = sum(chem.get("total_lbs", 0.0) for chem in releases)
-                                    updated_facilities.append({
-                                        "id": fac["id"],
-                                        "name": fac["name"],
-                                        "lat": fac["lat"],
-                                        "lon": fac["lon"],
-                                        "height": fac["height"],
-                                        "color": fac["color"],
-                                        "tri_id": fac["tri_id"],
-                                        "tri_name": tri_data.get("fac_name", fac["name"]),
-                                        "chemicals": releases,
-                                        "total_lbs": total_lbs,
-                                        "schedule": fac.get("schedule", "continuous")
-                                    })
-                                plumes["facilities"] = updated_facilities
+                                plumes["facilities"] = pipeline.build_embedded_facilities()
                             
                             # Also re-parse and update monitors data so we don't have to rerun HYSPLIT simulation
                             print(f"Updating monitors data for date: {date_key}")
