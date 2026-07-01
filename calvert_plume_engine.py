@@ -19,9 +19,9 @@ LOCAL_TRI_CSV_PATH = _local_tri if os.path.exists(_local_tri) else os.path.join(
 # --- DEFAULT ACTIVE HIGH-PRIORITY WHITELIST ---
 # Chemicals on this list default to CHECKED (active) on map load. All other chemicals default to UNCHECKED.
 DEFAULT_ACTIVE_CHEMICALS = [
-    "VINYL CHLORIDE", "CHLORINE", "TRICHLOROETHYLENE", "1,3-BUTADIENE",
-    "HYDROGEN FLUORIDE", "HYDROCHLORIC ACID", "AMMONIA", "CHLOROFORM",
-    "BENZENE", "ETHYLENE OXIDE"
+    "VINYL CHLORIDE", "1,2-DICHLOROETHANE", "BENZENE", "1,3-BUTADIENE",
+    "XYLENE (MIXED ISOMERS)", "TETRACHLOROETHYLENE", "1,2,4-TRICHLOROBENZENE",
+    "CHLORINE", "AMMONIA"
 ]
 
 # --- CHEMICAL-SPECIFIC DEPOSITION PROPERTIES DATABASE ---
@@ -243,6 +243,93 @@ TARGET_ZIP = "42029"
 MAP_CENTER = (37.0317, -88.3542)
 HYSPLIT_ENGINE_PATH = "/Users/nawrig04/hysplit/exec/hycs_std"
 GRIB_CONVERTER_PATH = "/Users/nawrig04/hysplit/exec/api2arl_v6"
+CONCPLOT_PATH = "/Users/nawrig04/hysplit/exec/concplot"
+
+# Deposition output grid (decoupled from WEATHER_BOX_RADIUS_KM, which governs particles).
+# Met (ARL) is full-CONUS HRRR, so the grid can be large with no weather re-download.
+# Span 4.0° (~440km) captures the plume's realistic 24h reach; spacing 0.03° (~3.3km) matches
+# HRRR's native 3km resolution (finer would be false precision).
+DEP_GRID_SPAN = 4.0
+DEP_GRID_SPACING = 0.03
+
+# HYSPLIT species ID tags: ≤8 chars, no spaces. Maps TRI chemical name → HYSPLIT identifier.
+DEP_CHEMICAL_TAGS = {
+    "VINYL CHLORIDE":           "VCLR",
+    "1,2-DICHLOROETHANE":       "EDC",
+    "BENZENE":                  "BENZ",
+    "1,3-BUTADIENE":            "BUTA",
+    "XYLENE (MIXED ISOMERS)":   "XYL",
+    "TETRACHLOROETHYLENE":      "PERC",
+    "1,2,4-TRICHLOROBENZENE":   "TCB",
+    "CHLORINE":                 "CL2",
+    "AMMONIA":                  "NH3",
+}
+
+DEP_CHEMICAL_SLUGS = {
+    "VINYL CHLORIDE":           "vinyl_chloride",
+    "1,2-DICHLOROETHANE":       "12dichloroethane",
+    "BENZENE":                  "benzene",
+    "1,3-BUTADIENE":            "13butadiene",
+    "XYLENE (MIXED ISOMERS)":   "xylene",
+    "TETRACHLOROETHYLENE":      "tetrachloroethylene",
+    "1,2,4-TRICHLOROBENZENE":   "124trichlorobenzene",
+    "CHLORINE":                 "chlorine",
+    "AMMONIA":                  "ammonia",
+}
+
+# Deposition physics (gas phase). Sources: Sander 2023 (Henry's), Wesely 1989 (dry dep),
+# Seinfeld & Pandis 2016, EPA IRIS. Corrections applied 2026-06-29:
+#   - VOC wet params = 0 (insoluble vapors; non-zero artificially depletes plume >50% in rain)
+#   - NH3 Henry's = 60 M/atm (physical solubility; 6e4 was pH-dependent effective value)
+#   - Cl2 Henry's = 0.093 M/atm (physical; 0.62 was incorrect)
+#   - Half-lives = actual OH/photolysis atmospheric lifetimes (0 = instantaneous destruction in HYSPLIT)
+CHEMICAL_DEPOSITION = {
+    "VINYL CHLORIDE": {
+        "mol_weight": 62.5, "dry_vd_ms": 0.003, "henry_M_atm": 0.069,
+        "in_cloud_ratio": 0.0, "below_cloud_s": 0.0, "halflife_days": 1.5,
+        "depositor_class": "negligible",
+    },
+    "1,2-DICHLOROETHANE": {
+        "mol_weight": 99.0, "dry_vd_ms": 0.003, "henry_M_atm": 0.11,
+        "in_cloud_ratio": 0.0, "below_cloud_s": 0.0, "halflife_days": 83.0,
+        "depositor_class": "negligible",
+    },
+    "BENZENE": {
+        "mol_weight": 78.1, "dry_vd_ms": 0.003, "henry_M_atm": 0.18,
+        "in_cloud_ratio": 0.0, "below_cloud_s": 0.0, "halflife_days": 9.7,
+        "depositor_class": "negligible",
+    },
+    "1,3-BUTADIENE": {
+        "mol_weight": 54.1, "dry_vd_ms": 0.003, "henry_M_atm": 0.058,
+        "in_cloud_ratio": 0.0, "below_cloud_s": 0.0, "halflife_days": 1.4,
+        "depositor_class": "negligible",
+    },
+    "XYLENE (MIXED ISOMERS)": {
+        "mol_weight": 106.2, "dry_vd_ms": 0.003, "henry_M_atm": 0.21,
+        "in_cloud_ratio": 0.0, "below_cloud_s": 0.0, "halflife_days": 0.7,
+        "depositor_class": "negligible",
+    },
+    "TETRACHLOROETHYLENE": {
+        "mol_weight": 165.8, "dry_vd_ms": 0.003, "henry_M_atm": 0.027,
+        "in_cloud_ratio": 0.0, "below_cloud_s": 0.0, "halflife_days": 117.0,
+        "depositor_class": "negligible",
+    },
+    "1,2,4-TRICHLOROBENZENE": {
+        "mol_weight": 181.4, "dry_vd_ms": 0.004, "henry_M_atm": 0.032,
+        "in_cloud_ratio": 0.0, "below_cloud_s": 0.0, "halflife_days": 48.0,
+        "depositor_class": "low-moderate",
+    },
+    "CHLORINE": {
+        "mol_weight": 70.9, "dry_vd_ms": 0.010, "henry_M_atm": 0.093,
+        "in_cloud_ratio": 2.0e5, "below_cloud_s": 3.0e-4, "halflife_days": 0.5,
+        "depositor_class": "moderate",
+    },
+    "AMMONIA": {
+        "mol_weight": 17.0, "dry_vd_ms": 0.016, "henry_M_atm": 60.0,
+        "in_cloud_ratio": 2.0e5, "below_cloud_s": 5.0e-4, "halflife_days": 30.0,
+        "depositor_class": "strong",
+    },
+}
 # ==============================================================================
 
 import os
@@ -256,6 +343,7 @@ import datetime
 import subprocess
 import argparse
 import csv
+import xml.etree.ElementTree as ET
 from typing import Dict, List, Any
 
 class CalvertCityPlumeEngine:
@@ -959,6 +1047,477 @@ class CalvertCityPlumeEngine:
         with open(setup_path, "w") as f:
             f.write(content)
         print(f"SETUP.cfg written to: {setup_path} (numpar={numpar_value}, maxpar={maxpar_value}, species={num_species})")
+
+    # ==========================================================================
+    # DEPOSITION LAYER PIPELINE (Phase 2A/2B — Native HYSPLIT KML → GeoJSON)
+    # ==========================================================================
+
+    def write_deposition_control_file(self, run_dir: str, facility: Dict, chem_name: str,
+                                      height: float, emission_g_hr: float, dry_only: bool = False) -> None:
+        """Write HYSPLIT CONTROL file for one facility-chemical deposition run.
+        Two output levels: 0 (soil deposition g/m²) and 10 (breathing-zone air g/m³).
+        HOURLY sampling — averaging line is `type HH MM`: '00 01 00' = type 0 (average),
+        1 hour, 0 min. (The earlier '01 00 00' was type 1 / 0-length interval → SIGFPE; that
+        was the real cause of the supposed "macOS 12h limit", NOT deposition.)
+        dry_only=True zeros wet-scavenging params (fallback if wet params trigger a crash).
+        """
+        p = CHEMICAL_DEPOSITION[chem_name]
+        tag = DEP_CHEMICAL_TAGS[chem_name]
+        yy = self.date_obj.strftime("%y")
+        mm = self.date_obj.strftime("%m")
+        dd = self.date_obj.strftime("%d")
+        grid_spacing = DEP_GRID_SPACING
+        grid_span = DEP_GRID_SPAN
+        H = p["henry_M_atm"]
+        in_cloud = 0.0 if dry_only else p["in_cloud_ratio"]
+        below_cloud = 0.0 if dry_only else p["below_cloud_s"]
+        lines = [
+            f"{yy} {mm} {dd} 01",
+            "1",
+            f"{facility['lat']:.4f} {facility['lon']:.4f} {height:.1f}",
+            "23", "0", "10000.0", "1",
+            os.path.dirname(self.met_file_path) + "/",
+            os.path.basename(self.met_file_path),
+            "1", tag,
+            f"{emission_g_hr:.4f}", "23.0",
+            f"{yy} {mm} {dd} 01 00",
+            "1",
+            f"{MAP_CENTER[0]:.4f} {MAP_CENTER[1]:.4f}",   # fixed grid center (all chemicals aligned)
+            f"{grid_spacing:.3f} {grid_spacing:.3f}",
+            f"{grid_span:.3f} {grid_span:.3f}",
+            run_dir + "/", "cdump",
+            "2", "0", "10",
+            "00 00 00 00 00",
+            "00 00 00 00 00",
+            "00 01 00",
+            "1",
+            "0.0 0.0 0.0",
+            f"{p['dry_vd_ms']:.4f} {p['mol_weight']:.1f} 0.0 0.0 {H:.4f}",
+            f"{H:.4f} {in_cloud:.2E} {below_cloud:.2E}",
+            f"{p['halflife_days']:.2f}",
+            "0.0",
+        ]
+        with open(os.path.join(run_dir, "CONTROL"), "w") as f:
+            f.write("\n".join(lines) + "\n")
+
+    def write_deposition_setup_file(self, run_dir: str) -> None:
+        """Write minimal HYSPLIT SETUP.cfg for deposition runs (no PARDUMP needed)."""
+        content = (
+            "&SETUP\n"
+            "  initd = 0,\n"
+            "  khmax = 24,\n"
+            "  ndump = 0,\n"
+            "  ncycl = 1,\n"
+            "  numpar = -500,\n"
+            "  maxpar = 50000,\n"
+            "/\n"
+        )
+        with open(os.path.join(run_dir, "SETUP.cfg"), "w") as f:
+            f.write(content)
+
+    def _hysplit_dep_run(self, run_dir: str) -> bool:
+        """Execute hycs_std in run_dir; return True if cdump is non-empty."""
+        try:
+            subprocess.run(
+                [self.hycs_std_path], cwd=run_dir,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=300
+            )
+        except subprocess.TimeoutExpired:
+            return False
+        cdump = os.path.join(run_dir, "cdump")
+        return os.path.exists(cdump) and os.path.getsize(cdump) > 0
+
+    def run_concplot_kml(self, run_dir: str, layer: str) -> str | None:
+        """Run concplot on cdump and return path to HYSPLIT_ps.kml, or None on failure.
+        layer='dep' targets surface deposition (level 0, cumulative).
+        layer='air' targets breathing-zone (level 10m, instantaneous).
+        """
+        if layer == "dep":
+            extra = ["-b0", "-t0", "-r2"]   # cumulative deposition at level 0
+        else:
+            extra = ["-b10", "-t10", "-r0"] # instantaneous air at level 10m
+        cmd = [
+            CONCPLOT_PATH,
+            "-icdump", "-a3", "-f0", "-g0", "-d1", "-k1",
+            "-c1",  # fixed-exponential contour levels: SAME bands across all 23 hourly frames
+            "-w2",  # grid-point contour smoothing (rounds off the blocky cell edges)
+            "-j/Users/nawrig04/hysplit/graphics/arlmap",
+        ] + extra
+        try:
+            subprocess.run(cmd, cwd=run_dir,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=300)
+        except subprocess.TimeoutExpired:
+            return None
+        kml = os.path.join(run_dir, "HYSPLIT_ps.kml")
+        if os.path.exists(kml) and os.path.getsize(kml) > 200:
+            dst = os.path.join(run_dir, f"{layer}.kml")
+            os.replace(kml, dst)
+            return dst
+        return None
+
+    @staticmethod
+    def extract_band_values(kml_path: str) -> Dict[int, float]:
+        """Read the concplot KML legend → {band_number: contour_value}. concplot's
+        '-c1' fixed levels are consistent across frames but DIFFER per chemical, so this must
+        be read per file. Legend placemarks look like:
+        <name>Contour Level: 1.0E-09 mass/m2</name> ... <styleUrl>#conc5</styleUrl>.
+        """
+        import re as _re
+        out = {}
+        try:
+            tree = ET.parse(kml_path)
+        except ET.ParseError:
+            return out
+        for pm in tree.getroot().iter("{http://www.opengis.net/kml/2.2}Placemark"):
+            name = pm.findtext("{http://www.opengis.net/kml/2.2}name", default="") or ""
+            mv = _re.search(r"Contour Level:\s*([0-9.eE+-]+)", name)
+            if not mv:
+                continue
+            style = (pm.findtext("{http://www.opengis.net/kml/2.2}styleUrl", default="") or "").lstrip("#")
+            if not style.startswith("conc"):
+                continue
+            try:
+                out[int(style[4:])] = float(mv.group(1))
+            except ValueError:
+                pass
+        return out
+
+    @staticmethod
+    def parse_kml_to_features(kml_path: str, layer: str, chem_name: str,
+                               fac_name: str, fac_id: int) -> List[Dict]:
+        """Parse a concplot KML file into a list of GeoJSON-style feature dicts.
+        Each feature carries {layer, hour_frame (0=first 12h, 1=second 12h),
+        band (1=lowest, N=highest), chem, fac_name, fac_id} in properties,
+        and a GeoJSON Polygon geometry.
+        """
+        NS = {"kml": "http://www.opengis.net/kml/2.2"}
+        try:
+            tree = ET.parse(kml_path)
+        except ET.ParseError:
+            return []
+        root = tree.getroot()
+        doc = root.find("kml:Document", NS)
+        if doc is None:
+            return []
+
+        features = []
+        # concplot KML has 4 boilerplate folders first (Source Locations, Weather, Smoke/Fire,
+        # AQI) with no contours; real time-frame folders follow. Count only contour-bearing
+        # folders so frames are numbered 0,1,... matching the frontend renderer.
+        frame_idx = -1
+        for folder in doc.findall("kml:Folder", NS):
+            folder_pms = []
+            for pm in folder.findall("kml:Placemark", NS):
+                style_url = pm.findtext("kml:styleUrl", default="", namespaces=NS).lstrip("#")
+                if not style_url.startswith("conc"):
+                    continue
+                try:
+                    band = int(style_url[4:])
+                except ValueError:
+                    continue
+                if band > 0:
+                    folder_pms.append((pm, band))
+            if not folder_pms:
+                continue
+            frame_idx += 1
+
+            for pm, band in folder_pms:
+                for geom_tag in ("kml:MultiGeometry", "kml:Polygon"):
+                    geom = pm.find(geom_tag, NS)
+                    if geom is not None:
+                        break
+
+                polys = (geom.findall(".//kml:Polygon", NS) if geom is not None
+                         else pm.findall(".//kml:Polygon", NS))
+
+                for poly in polys:
+                    outer = poly.find(".//kml:outerBoundaryIs/kml:LinearRing/kml:coordinates", NS)
+                    if outer is None or not outer.text:
+                        continue
+                    coords = []
+                    for token in outer.text.split():
+                        parts = token.split(",")
+                        if len(parts) >= 2:
+                            try:
+                                coords.append([round(float(parts[0]), 4), round(float(parts[1]), 4)])
+                            except ValueError:
+                                pass
+                    if len(coords) < 3:
+                        continue
+                    # Close ring if needed
+                    if coords[0] != coords[-1]:
+                        coords.append(coords[0])
+                    # Decimate: keep every 2nd vertex (smoother rings, bounded payload)
+                    coords = coords[::2] + [coords[-1]]
+                    if len(coords) < 4:
+                        continue
+                    features.append({
+                        "type": "Feature",
+                        "geometry": {"type": "Polygon", "coordinates": [coords]},
+                        "properties": {
+                            "layer": layer,
+                            "hour_frame": frame_idx,
+                            "band": band,
+                            "chem": chem_name,
+                            "fac_name": fac_name,
+                            "fac_id": fac_id,
+                        }
+                    })
+        return features
+
+    def generate_deposition_outputs(self, run_dir: str, fac_name: str, fac_id: int,
+                                    chem_name: str, chem_slug: str,
+                                    out_dir: str, out_name: str = None) -> Dict | None:
+        """Run concplot twice (dep + air), parse both KMLs, write one GeoJSON file.
+        Returns a manifest entry dict, or None if both layers are empty.
+        out_name overrides the output filename (used for combined 2b outputs).
+        """
+        all_features = []
+        layers_present = []
+        band_values = {}
+
+        for layer in ("dep", "air"):
+            kml_path = self.run_concplot_kml(run_dir, layer)
+            if kml_path is None:
+                print(f"  concplot produced no KML for {layer} layer")
+                continue
+            feats = self.parse_kml_to_features(kml_path, layer, chem_name, fac_name, fac_id)
+            if feats:
+                all_features.extend(feats)
+                layers_present.append(layer)
+                band_values[layer] = self.extract_band_values(kml_path)
+                print(f"  {layer}: {len(feats)} polygon features, bands {band_values[layer]}")
+            else:
+                print(f"  {layer}: KML empty or unparseable")
+
+        if not all_features:
+            return None
+
+        # Hourly frames: frame_idx 0 = simulation hour 2 (first 1h output), k = hour (k+2).
+        num_frames = max(f["properties"]["hour_frame"] for f in all_features) + 1
+        start_hour = 2
+
+        fac_slug = fac_name.lower().replace(" ", "_").replace(".", "").replace("&", "and")
+        filename = out_name or f"{fac_slug}_{chem_slug}.json"
+        geojson = {
+            "type": "FeatureCollection",
+            "features": all_features,
+            "metadata": {
+                "fac_name": fac_name, "fac_id": fac_id,
+                "chem": chem_name, "chem_slug": chem_slug,
+                "layers": layers_present,
+                "depositor_class": CHEMICAL_DEPOSITION[chem_name]["depositor_class"],
+                "num_frames": num_frames,
+                "start_hour": start_hour,
+                "band_values": band_values,   # {layer: {band: contour value g/m² or g/m³}}
+            }
+        }
+        out_path = os.path.join(out_dir, filename)
+        with open(out_path, "w") as f:
+            json.dump(geojson, f, separators=(",", ":"))
+        print(f"  GeoJSON written: {out_path} ({os.path.getsize(out_path)//1024}KB)")
+        return {
+            "file": filename,
+            "fac_name": fac_name, "fac_id": fac_id,
+            "chem": chem_name, "chem_slug": chem_slug,
+            "layers": layers_present,
+            "depositor_class": CHEMICAL_DEPOSITION[chem_name]["depositor_class"],
+        }
+
+    def _execute_single_deposition_run(self, fac: Dict, fac_idx: int, chem_name: str,
+                                       source_type: str, emission_g_hr: float, height: float,
+                                       dep_base: str, out_dir: str) -> Dict | None:
+        """Helper to run a single deposition simulation and output parsing (called in parallel)."""
+        try:
+            chem_slug = DEP_CHEMICAL_SLUGS[chem_name]
+            fac_slug = fac["name"].lower().replace(" ", "_").replace(".", "").replace("&", "and")
+            run_dir = os.path.join(dep_base, f"{fac_slug}_{chem_slug}_{source_type}")
+            os.makedirs(run_dir, exist_ok=True)
+
+            cdump_path = os.path.join(run_dir, "cdump")
+            if os.path.exists(cdump_path) and os.path.getsize(cdump_path) > 0:
+                print(f"Skipping HYSPLIT for {fac['name']} / {chem_name} ({source_type}) — cdump already exists.")
+                ok = True
+            else:
+                print(f"Starting: {fac['name']} / {chem_name} ({source_type}: {emission_g_hr:.2f} g/hr at {height:.1f}m)...")
+                self.write_deposition_control_file(run_dir, fac, chem_name, height, emission_g_hr)
+                self.write_deposition_setup_file(run_dir)
+                ok = self._hysplit_dep_run(run_dir)
+
+                if not ok and CHEMICAL_DEPOSITION[chem_name]["in_cloud_ratio"] > 0:
+                    print(f"  cdump empty for {fac['name']}/{chem_name} ({source_type}) — retrying with dry-dep-only params")
+                    if os.path.exists(os.path.join(run_dir, "cdump")):
+                        os.remove(os.path.join(run_dir, "cdump"))
+                    self.write_deposition_control_file(
+                        run_dir, fac, chem_name, height, emission_g_hr, dry_only=True)
+                    ok = self._hysplit_dep_run(run_dir)
+
+            if not ok:
+                print(f"HYSPLIT Failed: {fac['name']} / {chem_name} ({source_type})")
+                return None
+
+            out_filename = f"{fac_slug}_{chem_slug}_{source_type}.json"
+            entry = self.generate_deposition_outputs(
+                run_dir, fac["name"], fac_idx, chem_name, chem_slug, out_dir, out_name=out_filename)
+            if entry:
+                entry["source_type"] = source_type
+                print(f"Completed: {fac['name']} / {chem_name} ({source_type})")
+                return entry
+        except Exception as e:
+            print(f"Error in {fac['name']} / {chem_name} ({source_type}): {e}")
+        return None
+
+    def run_deposition_pipeline(self) -> List[Dict]:
+        """Main Phase 2A/2B entry point. Gather all facility×chemical×source tasks
+        and execute them in parallel using concurrent.futures.
+        """
+        date_str = self.date_obj.strftime("%Y-%m-%d")
+        dep_base = os.path.join(self.workspace_dir, "dep_runs", date_str)
+        out_dir = os.path.join(self.workspace_dir, "output", "geojson", date_str)
+        os.makedirs(dep_base, exist_ok=True)
+        os.makedirs(out_dir, exist_ok=True)
+
+        hysplit_bdyfiles = os.path.join(os.path.dirname(self.hysplit_exec_dir), "bdyfiles")
+        dep_bdyfiles = os.path.join(dep_base, "bdyfiles")
+        if not os.path.exists(dep_bdyfiles) and os.path.isdir(hysplit_bdyfiles):
+            os.symlink(hysplit_bdyfiles, dep_bdyfiles)
+
+        # Gather tasks
+        tasks = []
+        for fac_idx, fac in enumerate(self.facilities):
+            fac_name = fac["name"]
+            releases = self.get_facility_releases(fac_name).get("releases", [])
+            release_by_chem = {r["chemical"].upper(): r for r in releases}
+
+            for chem_name in CHEMICAL_DEPOSITION:
+                release = release_by_chem.get(chem_name)
+                if not release:
+                    continue
+                stack_g_hr = release.get("stack_g_hr", 0.0)
+                fugitive_g_hr = release.get("fugitive_g_hr", 0.0)
+
+                for source_type, emission_g_hr, height in [("stack", stack_g_hr, fac["height"]), ("fugitive", fugitive_g_hr, 2.0)]:
+                    if emission_g_hr <= 0:
+                        continue
+                    tasks.append((fac, fac_idx, chem_name, source_type, emission_g_hr, height))
+
+        print(f"\nScheduling {len(tasks)} deposition runs in parallel on 2 CPU workers...")
+
+        import concurrent.futures
+        manifest_entries = []
+        max_workers = 2
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(
+                    self._execute_single_deposition_run,
+                    t[0], t[1], t[2], t[3], t[4], t[5], dep_base, out_dir
+                )
+                for t in tasks
+            ]
+            for future in concurrent.futures.as_completed(futures):
+                entry = future.result()
+                if entry:
+                    manifest_entries.append(entry)
+
+        manifest = {
+            "date": date_str,
+            "generated": datetime.datetime.utcnow().isoformat() + "Z",
+            "note": "hourly frames: hour_frame k = sim hour (k+2); dep cumulative, air per-hour",
+            "entries": manifest_entries,
+        }
+        with open(os.path.join(out_dir, "manifest.json"), "w") as f:
+            json.dump(manifest, f, indent=2)
+        print(f"\nManifest: {os.path.join(out_dir, 'manifest.json')} ({len(manifest_entries)} entries)")
+        return manifest_entries
+
+    def build_combined_chemical_outputs(self, date_str: str = None) -> List[Dict]:
+        """2b: per chemical, SUM the facility cdumps (concadd) → merged fields → concplot → combined footprints.
+        We generate three combined footprints per chemical:
+        1. combined_stack_{chem_slug}.json (only stack emissions merged)
+        2. combined_fugitive_{chem_slug}.json (only fugitive emissions merged)
+        3. combined_{chem_slug}.json (both stack + fugitive emissions merged)
+        """
+        if date_str is None:
+            date_str = self.date_obj.strftime("%Y-%m-%d")
+        concadd = "/Users/nawrig04/hysplit/exec/concadd"
+        dep_base = os.path.join(self.workspace_dir, "dep_runs", date_str)
+        out_dir = os.path.join(self.workspace_dir, "output", "geojson", date_str)
+        manifest_path = os.path.join(out_dir, "manifest.json")
+        manifest = json.load(open(manifest_path))
+
+        # group per-facility entries by chemical
+        by_chem = {}
+        for e in manifest["entries"]:
+            by_chem.setdefault(e["chem"], []).append(e)
+
+        combined_entries = []
+        for chem_name, entries in by_chem.items():
+            chem_slug = entries[0]["chem_slug"]
+            
+            # Setup combination configs: (suffix, entries_to_combine, optional source_type)
+            configs = [
+                ("", entries, None),
+                ("_stack", [e for e in entries if e.get("source_type") == "stack"], "stack"),
+                ("_fugitive", [e for e in entries if e.get("source_type") == "fugitive"], "fugitive")
+            ]
+
+            for suffix, c_entries, s_type in configs:
+                if not c_entries:
+                    continue
+
+                cdumps = []
+                for e in c_entries:
+                    fac_slug = e["fac_name"].lower().replace(" ", "_").replace(".", "").replace("&", "and")
+                    src_type = e.get("source_type", "stack")
+                    cd = os.path.join(dep_base, f"{fac_slug}_{chem_slug}_{src_type}", "cdump")
+                    if os.path.exists(cd):
+                        cdumps.append(cd)
+
+                if not cdumps:
+                    continue
+
+                crun = os.path.join(dep_base, f"combined_{chem_slug}{suffix}")
+                os.makedirs(crun, exist_ok=True)
+                combined_cd = os.path.join(crun, "cdump")
+                shutil.copy(cdumps[0], combined_cd)
+                ok = True
+                for extra in cdumps[1:]:
+                    tmp = combined_cd + ".tmp"
+                    r = subprocess.run([concadd, f"-i{extra}", f"-b{combined_cd}", f"-o{tmp}"],
+                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
+                    if os.path.exists(tmp) and os.path.getsize(tmp) > 0:
+                        os.replace(tmp, combined_cd)
+                    else:
+                        print(f"  concadd failed for {chem_name} ({suffix}) (+{extra})")
+                        ok = False
+                        break
+                if not ok:
+                    continue
+
+                facilities = [e["fac_name"] for e in c_entries]
+                entry_name = f"combined_{chem_slug}{suffix}.json"
+                entry = self.generate_deposition_outputs(
+                    crun, f"Combined ({len(facilities)})", -1, chem_name, chem_slug, out_dir,
+                    out_name=entry_name)
+                if entry:
+                    entry["combined"] = True
+                    entry["facilities"] = list(set(facilities))
+                    if s_type:
+                        entry["source_type"] = s_type
+                    combined_entries.append(entry)
+                    print(f"  COMBINED {chem_name}{suffix}: {len(facilities)} facilities → {entry['file']}")
+
+        manifest["combined_entries"] = combined_entries
+        with open(manifest_path, "w") as f:
+            json.dump(manifest, f, indent=2)
+        print(f"Combined outputs: {len(combined_entries)} chemicals")
+        return combined_entries
+
+        manifest["combined_entries"] = combined_entries
+        with open(manifest_path, "w") as f:
+            json.dump(manifest, f, indent=2)
+        print(f"Combined outputs: {len(combined_entries)} chemicals")
+        return combined_entries
 
     def convert_and_parse_pardumps(self, run_dir: str, facility_idx: int) -> Dict[int, List[Dict[str, Any]]]:
         """
@@ -1849,6 +2408,39 @@ class CalvertCityPlumeEngine:
             "particles": hysplit_particles
         }
 
+    def build_deposition_archive(self, dates: List[str]) -> Dict[str, Any]:
+        """Read the per-date deposition GeoJSON + manifest from disk and bundle them for inline
+        embedding in index.html. Returns {date: {manifest, files:{fname: geojson}}}.
+        Empty/missing dates are simply omitted (graceful). Inline embedding is required because the
+        page is opened via file:// where fetch() of local files is blocked by the browser.
+        """
+        archive = {}
+        base = os.path.join(self.workspace_dir, "output", "geojson")
+        for date_str in dates:
+            date_dir = os.path.join(base, date_str)
+            manifest_path = os.path.join(date_dir, "manifest.json")
+            if not os.path.exists(manifest_path):
+                continue
+            try:
+                with open(manifest_path) as f:
+                    manifest = json.load(f)
+            except Exception:
+                continue
+            files = {}
+            for entry in manifest.get("entries", []) + manifest.get("combined_entries", []):
+                fpath = os.path.join(date_dir, entry["file"])
+                if os.path.exists(fpath):
+                    try:
+                        with open(fpath) as f:
+                            files[entry["file"]] = json.load(f)
+                    except Exception:
+                        pass
+            if files:
+                archive[date_str] = {"manifest": manifest, "files": files}
+        total = sum(len(v["files"]) for v in archive.values())
+        print(f"Deposition archive: {len(archive)} date(s), {total} facility-chemical file(s) embedded")
+        return archive
+
     def generate_web_visualization(self, master_archive: Dict[str, Any]):
         """
         Write the standalone visualization index.html file with embedded data.
@@ -1862,6 +2454,9 @@ class CalvertCityPlumeEngine:
         
         # Serialize the simulation data to embed directly in the script template
         archive_json_data = json.dumps(master_archive, indent=2)
+
+        # Deposition GeoJSON embedded inline (file:// blocks fetch of local files)
+        dep_archive_json = json.dumps(self.build_deposition_archive(list(master_archive.keys())))
         
         html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -2573,6 +3168,25 @@ class CalvertCityPlumeEngine:
             background: rgba(255, 255, 255, 0.05);
             margin: 2px 0;
         }}
+        /* ── Deposition / Air-Layer toggles ── */
+        .dep-toggle {{ position:relative; display:inline-block; width:30px; height:16px; flex-shrink:0; }}
+        .dep-toggle input {{ display:none; }}
+        .dep-toggle-slider {{ position:absolute; top:0; left:0; right:0; bottom:0; background:#333; border-radius:16px; cursor:pointer; transition:.2s; }}
+        .dep-toggle-slider::before {{ content:""; position:absolute; width:12px; height:12px; left:2px; bottom:2px; background:#555; border-radius:50%; transition:.2s; }}
+        .dep-toggle input:checked + .dep-toggle-slider {{ background:#2a7a4f; }}
+        .dep-toggle input:checked + .dep-toggle-slider::before {{ background:#fff; transform:translateX(14px); }}
+        .dep-info-btn {{ cursor:help; font-size:10px; color:var(--text-muted); border:1px solid rgba(255,255,255,.25); border-radius:50%; width:14px; height:14px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }}
+        .dep-chem-pill {{ display:flex; align-items:center; gap:3px; font-size:9px; color:var(--text-muted); cursor:pointer; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:2px 6px; white-space:nowrap; }}
+        .dep-chem-pill input {{ cursor:pointer; margin:0; }}
+        .dep-chem-pill:has(input:checked) {{ border-color:rgba(255,255,255,.25); color:rgba(255,255,255,.8); }}
+        /* ── Hover concentration readout ── */
+        #dep-readout {{ position:absolute; z-index:9999; pointer-events:none; display:none;
+            background:rgba(10,12,20,.93); border:1px solid rgba(255,255,255,.15); border-radius:8px;
+            padding:8px 10px; font-size:11px; color:#e8e8ef; max-width:260px;
+            box-shadow:0 4px 16px rgba(0,0,0,.45); backdrop-filter:blur(6px); }}
+        #dep-readout .dr-title {{ font-size:9px; color:var(--text-muted); margin-bottom:5px; letter-spacing:.05em; }}
+        #dep-readout .dr-chem {{ font-weight:600; margin-top:4px; }}
+        #dep-readout .dr-row {{ display:flex; justify-content:space-between; gap:14px; color:rgba(255,255,255,.75); }}
     </style>
 </head>
 <body>
@@ -2583,7 +3197,10 @@ class CalvertCityPlumeEngine:
         
         <!-- Overhead Particle Rendering Canvas -->
         <canvas id="particle-canvas"></canvas>
-        
+
+        <!-- Hover concentration readout -->
+        <div id="dep-readout"></div>
+
         <!-- Floating Restore Pills (visible when panels are collapsed) -->
         <div class="panel-restore-pill" id="restore-header">
             <span>☰</span><span>Controls</span>
@@ -2625,34 +3242,27 @@ class CalvertCityPlumeEngine:
                     </select>
                 </div>
 
-                <!-- ══ Particles Toggle ══ -->
-                <div style="margin-top: 12px; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06);">
-                    <label id="particles-toggle-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase;">
-                        <input type="checkbox" id="particles-toggle" checked style="accent-color: #10b981; width: 14px; height: 14px; cursor: pointer;">
-                        <span>💨 Show Particles</span>
-                    </label>
+                <div style="margin-top: 12px;">
+                    <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">
+                        <span style="font-size:10px;color:var(--text-muted);font-weight:600;letter-spacing:.05em;">CHEMICAL FILTERS</span>
+                    </div>
+                    <div id="dep-chem-list" style="display:flex;flex-wrap:wrap;gap:3px;max-height:96px;overflow-y:auto;"></div>
                 </div>
 
-                <!-- ══ Deposition Heatmap Toggle ══ -->
-                <div style="margin-top: 0; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06);">
-                    <label id="deposition-toggle-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase;">
-                        <input type="checkbox" id="deposition-toggle" style="accent-color: #f59e0b; width: 14px; height: 14px; cursor: pointer;">
-                        <span>🌡️ Deposition Heatmap</span>
-                    </label>
-                    <div id="deposition-source-container" style="display: none; margin-top: 8px;">
-                        <label for="deposition-source-select" style="font-size: 10px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px; letter-spacing: 0.05em;">DEPOSITION SOURCE</label>
-                        <select id="deposition-source-select">
-                            <!-- Javascript populated -->
-                        </select>
+                <!-- ══ Footprint Layers ══ -->
+                <div class="divider"></div>
+                <div style="margin-top:12px;">
+                    <div style="display:flex;align-items:center;gap:5px;margin-bottom:8px;">
+                        <span style="font-size:10px;color:var(--text-muted);font-weight:600;letter-spacing:.05em;">FOOTPRINT LAYERS</span>
+                        <span class="dep-info-btn" title="Soil Deposition (g/m²): compounds that physically settle onto ground. Chlorine and ammonia show meaningful deposits; VOCs show tiny footprints (honest).&#10;&#10;Ground-Level Air (g/m³): breathing-zone concentration at ~10m. All chemicals show a footprint here — this is what you inhale.&#10;&#10;Frames update every 12h (macOS HYSPLIT constraint). Deposition grows cumulatively; air shows the current period.">ⓘ</span>
                     </div>
-                    <!-- Gradient legend bar -->
-                    <div id="deposition-legend" style="display: none; margin-top: 8px; padding: 6px 0;">
-                        <div style="height: 10px; border-radius: 5px; background: linear-gradient(to right, rgba(255,255,0,0.5), rgba(255,165,0,0.7), rgba(255,80,0,0.85), rgba(200,20,20,0.95)); margin-bottom: 4px;"></div>
-                        <div style="display: flex; justify-content: space-between; font-size: 9px; color: var(--text-muted); font-weight: 500;">
-                            <span>Low</span>
-                            <span>Moderate</span>
-                            <span>High</span>
-                        </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+                        <span style="font-size:11px;color:var(--text-primary);">Soil Deposition <span style="color:var(--text-muted);font-size:9px;">(g/m²)</span></span>
+                        <label class="dep-toggle"><input type="checkbox" id="dep-layer-toggle" checked><span class="dep-toggle-slider"></span></label>
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                        <span style="font-size:11px;color:var(--text-primary);">Ground-Level Air <span style="color:var(--text-muted);font-size:9px;">(g/m³)</span></span>
+                        <label class="dep-toggle"><input type="checkbox" id="air-layer-toggle" checked><span class="dep-toggle-slider"></span></label>
                     </div>
                 </div>
 
@@ -2704,6 +3314,18 @@ class CalvertCityPlumeEngine:
                             </div>
                             <input type="range" class="sandbox-slider" id="fugitiveOpacitySlider"
                                    min="0.05" max="1.0" step="0.05" value="0.70">
+                        </div>
+
+                        <div class="sandbox-divider"></div>
+
+                        <!-- Footprint (deposition/air) Opacity -->
+                        <div class="sandbox-group">
+                            <div class="sandbox-label">
+                                <span>FOOTPRINT OPACITY</span>
+                                <span class="sandbox-val" id="footprintOpacityVal">0.45</span>
+                            </div>
+                            <input type="range" class="sandbox-slider" id="footprintOpacitySlider"
+                                   min="0.05" max="0.95" step="0.01" value="0.45">
                         </div>
 
                     </div>
@@ -2787,6 +3409,7 @@ class CalvertCityPlumeEngine:
     <!-- Data Injection Block -->
     <script>
         const historicalSimulationArchive = {archive_json_data};
+        const depositionArchive = {dep_archive_json};
     </script>
 
     <!-- UI and Rendering Engine Script -->
@@ -2808,11 +3431,12 @@ class CalvertCityPlumeEngine:
         const map = L.map('map', {{
             zoomControl: false,
             maxZoom: 16,
-            minZoom: 8
+            minZoom: 7
         }}).setView([{MAP_CENTER[0]}, {MAP_CENTER[1]}], {MAP_ZOOM_LEVEL});
         
         // CartoDB Dark Matter tile layer
-        L.tileLayer('https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}{{r}}.png', {{
+        // CartoDB Voyager tile layer (detailed streets, rivers, labels — readable under footprints)
+        L.tileLayer('https://{{s}}.basemaps.cartocdn.com/rastertiles/voyager/{{z}}/{{x}}/{{y}}{{r}}.png', {{
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
             subdomains: 'abcd',
             maxZoom: 20
@@ -2852,6 +3476,333 @@ class CalvertCityPlumeEngine:
 
         // --- EPA MONITORING LAYERS ---
         const activeMonitorLayer = L.layerGroup().addTo(map);
+
+        // ── Deposition / Ground-Level Air footprint layers ──
+        // Two custom panes BELOW the particle canvas (overlayPane=400) so particles float on top,
+        // but ABOVE the basemap tiles (tilePane=200) so the map shows through. Each layer gets its
+        // OWN pane and the master transparency is applied to the WHOLE pane (CSS opacity) — a pane
+        // composites as one group, so stacked chemicals/bands no longer COMPOUND into opacity.
+        map.createPane('airPane');
+        map.getPane('airPane').style.zIndex = 245;
+        map.getPane('airPane').style.pointerEvents = 'none';
+        map.createPane('depPane');
+        map.getPane('depPane').style.zIndex = 250;
+        map.getPane('depPane').style.pointerEvents = 'none';
+        const depositionLayer    = L.layerGroup().addTo(map);
+        const airConcentrationLayer = L.layerGroup().addTo(map);
+
+        const DEP_CHEM_NAMES = [
+            "VINYL CHLORIDE","1,2-DICHLOROETHANE","BENZENE","1,3-BUTADIENE",
+            "XYLENE (MIXED ISOMERS)","TETRACHLOROETHYLENE","1,2,4-TRICHLOROBENZENE",
+            "CHLORINE","AMMONIA"
+        ];
+        const DEP_CHEM_LABELS = {{
+            "VINYL CHLORIDE":"Vinyl Chloride","1,2-DICHLOROETHANE":"Ethylene Dichloride",
+            "BENZENE":"Benzene","1,3-BUTADIENE":"1,3-Butadiene",
+            "XYLENE (MIXED ISOMERS)":"Xylenes","TETRACHLOROETHYLENE":"Tetrachloroethylene",
+            "1,2,4-TRICHLOROBENZENE":"1,2,4-TCB","CHLORINE":"Chlorine","AMMONIA":"Ammonia"
+        }};
+        // band 1 = HIGHEST concentration (smallest, near source) → band N = lowest (largest, outer).
+        // Ramps go intense → faint so the core reads strong and the edge fades. Saturated for the
+        // light Voyager basemap.
+        const DEP_COLORS = ["#800026","#bd0026","#f03b20","#fd8d3c","#feb24c"]; // deep red → amber (soil)
+        const AIR_COLORS = ["#084594","#2171b5","#4292c6","#6baed6","#9ecae1"]; // deep → light blue (air)
+        // Show only contour bands within ~1.5 decades of each footprint's PEAK concentration. This
+        // keys on the absolute value (band_values), not the band number, so it's robust to concplot's
+        // per-field auto-scaled levels (e.g. combined ammonia got 2-decade steps). The faint far
+        // trails (>1.5 decades below peak) are what clipped into the grid "square" — hiding them keeps
+        // the footprint inside the grid and shows only meaningful deposition.
+        const VISIBLE_DECADE_RATIO = 32;  // keep bands with value >= peakValue / 32
+
+        let depManifest = null;
+        let depGeoJsonCache = {{}};
+        let depActiveChem = new Set(DEP_CHEM_NAMES);
+        let footprintOpacity = 0.45;   // master pane transparency (tunable via sandbox slider)
+
+        (function() {{
+            const list = document.getElementById('dep-chem-list');
+            DEP_CHEM_NAMES.forEach(chem => {{
+                const lbl = document.createElement('label');
+                lbl.className = 'dep-chem-pill';
+                lbl.innerHTML = `<input type="checkbox" class="dep-chem-chk" data-chem="${{chem}}" checked> ${{DEP_CHEM_LABELS[chem]}}`;
+                list.appendChild(lbl);
+            }});
+        }})();
+
+        document.querySelectorAll('.dep-chem-chk').forEach(chk => {{
+            chk.addEventListener('change', () => {{
+                const chem = chk.dataset.chem;
+                const isChecked = chk.checked;
+                
+                // Update global active set
+                depActiveChem = new Set([...document.querySelectorAll('.dep-chem-chk:checked')].map(c => c.dataset.chem));
+                
+                // Update all facilities' chemical active state for this chemical
+                PLUME_DATA.facilities.forEach(fac => {{
+                    if (activeChemicals[fac.id] && activeChemicals[fac.id][chem] !== undefined) {{
+                        activeChemicals[fac.id][chem] = isChecked;
+                        // Update checkbox in UI
+                        const facChk = document.querySelector(`.chem-chk[data-fac="${{fac.id}}"][data-chem="${{chem}}"]`);
+                        if (facChk) {{
+                            facChk.checked = isChecked;
+                        }}
+                        // Filter out existing particles of this chemical from map immediately
+                        if (!isChecked) {{
+                            particles = particles.filter(p => p.fac !== fac.id || p.chem !== chem);
+                        }}
+                        // Recalculate facility totals
+                        let active_total = 0;
+                        fac.chemicals.forEach(c => {{
+                            if (activeChemicals[fac.id][c.chemical]) {{
+                                active_total += c.total_lbs || 0;
+                            }}
+                        }});
+                        const totalLbsLabel = document.getElementById('total-lbs-' + fac.id);
+                        if (totalLbsLabel) {{
+                            totalLbsLabel.textContent = active_total === 0 ? '0.0 lbs' : active_total.toLocaleString(undefined, {{maximumFractionDigits: 1}}) + ' lbs/yr';
+                        }}
+                        updateFacilityPopup(fac.id);
+                    }}
+                }});
+                
+                refreshDepLayers();
+                drawParticles();
+            }});
+        }});
+        document.getElementById('dep-layer-toggle').addEventListener('change', refreshDepLayers);
+        document.getElementById('air-layer-toggle').addEventListener('change', refreshDepLayers);
+
+        function loadDepManifest(dateStr) {{
+            // Data is embedded inline (depositionArchive) — no fetch (file:// blocks it).
+            const entry = (typeof depositionArchive !== 'undefined') ? depositionArchive[dateStr] : null;
+            depManifest = entry ? entry.manifest : null;
+            depGeoJsonCache = entry ? entry.files : {{}};
+            refreshDepLayers();
+        }}
+
+        function loadAndRefreshDepLayers() {{ refreshDepLayers(); }}
+
+        // Animate the real hourly frames keyed to the timeline. Each file carries
+        // metadata.num_frames (N) and start_hour (S): frame k = sim hour (k+S).
+        // Cross-fade between consecutive hourly frames (per-polygon) for smoothness; the master
+        // transparency + the 0→2h fade-in are applied at the PANE level so nothing compounds.
+        // Hit-test index of currently-shown footprint polygons (rebuilt each refresh) for hover readout
+        let depHitIndex = [];
+        // 2b: per-facility hit-test index (not drawn, used for hover attribution %)
+        let perFacHitIndex = [];
+
+        function refreshDepLayers() {{
+            const displayMode = document.getElementById('display-mode-select').value;
+            depositionLayer.clearLayers();
+            airConcentrationLayer.clearLayers();
+            depHitIndex = [];
+            perFacHitIndex = [];
+            if (!depManifest) return;
+            const showDep = document.getElementById('dep-layer-toggle').checked;
+            const showAir = document.getElementById('air-layer-toggle').checked;
+
+            const hour = (typeof playbackTime === 'number')
+                ? playbackTime
+                : (parseFloat(document.getElementById('time-slider').value) || 0);
+
+            // Master pane transparency × soft fade-in over the first 2 hours
+            const globalIntensity = Math.max(0, Math.min(1, hour / 2));
+            const paneOpacity = footprintOpacity * globalIntensity;
+            map.getPane('depPane').style.opacity = (showDep ? paneOpacity : 0);
+            map.getPane('airPane').style.opacity = (showAir ? paneOpacity : 0);
+            if ((!showDep && !showAir) || hour <= 0) return;
+
+            // Draw combined contours based on displayMode
+            let activeCombinedEntries = (depManifest.combined_entries || []).filter(entry => {{
+                if (displayMode === 'combined') {{
+                    return entry.source_type === undefined || entry.source_type === null;
+                }} else {{
+                    return entry.source_type === displayMode;
+                }}
+            }});
+
+            activeCombinedEntries.forEach(entry => {{
+                if (!depActiveChem.has(entry.chem)) return;
+                const fc = depGeoJsonCache[entry.file];
+                if (!fc) return;
+                const md = fc.metadata || {{}};
+                const N = md.num_frames || 1;
+                const S = (md.start_hour != null) ? md.start_hour : 2;
+
+                const fp  = Math.max(0, Math.min(N - 1, hour - S));         // frame position
+                const fLow = Math.floor(fp);
+                const fHigh = Math.min(N - 1, fLow + 1);
+                const frac = fp - fLow;
+
+                const renderLayer = (layerName, layerGroup, paneName, colors, baseAlpha) => {{
+                    // Keep only bands within ~1.5 decades of the peak concentration (value-based, not
+                    // band number) — hides the faint far trails that clip the grid into a "square".
+                    const bandVals = (md.band_values || {{}})[layerName] || {{}};
+                    let peakVal = 0;
+                    for (const b in bandVals) if (bandVals[b] > peakVal) peakVal = bandVals[b];
+                    const visFloor = peakVal / VISIBLE_DECADE_RATIO;
+                    const draw = (frameIdx, factor) => {{
+                        if (factor <= 0.002) return;
+                        const feats = fc.features.filter(f =>
+                            f.properties.layer === layerName && f.properties.hour_frame === frameIdx
+                            && bandVals[f.properties.band] >= visFloor);
+                        if (!feats.length) return;
+                        L.geoJSON({{type:'FeatureCollection', features:feats}}, {{
+                            pane: paneName,
+                            interactive: false,
+                            style: f => ({{
+                                fillColor: colors[Math.min((f.properties.band||1)-1, colors.length-1)],
+                                fillOpacity: baseAlpha * factor,   // cross-fade only; master is pane-level
+                                stroke: false, weight: 0
+                            }})
+                        }}).addTo(layerGroup);
+                        if (frameIdx === fLow) {{
+                            for (const f of feats) depHitIndex.push({{
+                                chem: entry.chem, fac: md.fac_name, layer: layerName,
+                                band: f.properties.band, value: bandVals[f.properties.band],
+                                ring: f.geometry.coordinates[0]
+                            }});
+                        }}
+                    }};
+                    draw(fLow, 1 - frac);
+                    if (fHigh !== fLow) draw(fHigh, frac);
+                }};
+
+                if (showDep && entry.layers.includes('dep')) renderLayer('dep', depositionLayer, 'depPane', DEP_COLORS, 0.6);
+                if (showAir && entry.layers.includes('air')) renderLayer('air', airConcentrationLayer, 'airPane', AIR_COLORS, 0.5);
+            }});
+
+            // 2b: build per-facility hit-test index for hover attribution %
+            // (uses the per-facility entries that are embedded but NOT drawn)
+            const activePerFacEntries = (depManifest.entries || []).filter(entry => {{
+                if (displayMode === 'combined') {{
+                    return true; 
+                }} else {{
+                    return entry.source_type === displayMode;
+                }}
+            }});
+
+            activePerFacEntries.forEach(entry => {{
+                if (!depActiveChem.has(entry.chem)) return;
+                if (activeFacilities[entry.fac_id] === false) return;
+                if (activeChemicals[entry.fac_id] && activeChemicals[entry.fac_id][entry.chem] === false) return;
+                const fc = depGeoJsonCache[entry.file];
+                if (!fc) return;
+                const md = fc.metadata || {{}};
+                const N = md.num_frames || 1;
+                const S = (md.start_hour != null) ? md.start_hour : 2;
+                const fp = Math.max(0, Math.min(N - 1, hour - S));
+                const fLow = Math.floor(fp);
+                for (const layerName of ['dep', 'air']) {{
+                    if (layerName === 'dep' && !showDep) continue;
+                    if (layerName === 'air' && !showAir) continue;
+                    const bandVals = (md.band_values || {{}})[layerName] || {{}};
+                    let peakVal = 0;
+                    for (const b in bandVals) if (bandVals[b] > peakVal) peakVal = bandVals[b];
+                    const visFloor = peakVal / VISIBLE_DECADE_RATIO;
+                    const feats = fc.features.filter(f =>
+                        f.properties.layer === layerName && f.properties.hour_frame === fLow
+                        && bandVals[f.properties.band] >= visFloor);
+                    for (const f of feats) perFacHitIndex.push({{
+                        chem: entry.chem, fac: md.fac_name, layer: layerName,
+                        band: f.properties.band, value: bandVals[f.properties.band],
+                        ring: f.geometry.coordinates[0]
+                    }});
+                }}
+            }});
+        }}
+
+        // Throttled animation tick (called from the main playback loop)
+        let _lastDepHour = -999;
+        function maybeAnimateDep() {{
+            const hour = (typeof playbackTime === 'number') ? playbackTime : 0;
+            if (Math.abs(hour - _lastDepHour) >= 0.08) {{
+                _lastDepHour = hour;
+                refreshDepLayers();
+            }}
+        }}
+
+        // ── Hover concentration readout ──
+        // On mouse move, point-in-polygon test the cursor against the currently-shown footprints;
+        // the lowest band number containing the point = highest contour level there ("≥ value").
+        function depPointInRing(lat, lng, ring) {{
+            let inside = false;
+            for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {{
+                const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+                if (((yi > lat) !== (yj > lat)) && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi))
+                    inside = !inside;
+            }}
+            return inside;
+        }}
+        function fmtConc(v, unit) {{
+            // Contour bands are decades; the true value sits between this level and the next (×10).
+            // Show that range so it's clear these are binned, not a single round "filler" number.
+            const f = x => x >= 1 ? x.toPrecision(3) : (x >= 0.001 ? x.toPrecision(2) : x.toExponential(1));
+            return f(v * 1e6) + '–' + f(v * 1e7) + ' µg/' + unit;
+        }}
+        const depReadoutEl = document.getElementById('dep-readout');
+        let _depHoverT = 0;
+        map.on('mousemove', (e) => {{
+            const now = performance.now();
+            if (now - _depHoverT < 45) return;
+            _depHoverT = now;
+            if (!depHitIndex.length && !perFacHitIndex.length) {{ depReadoutEl.style.display = 'none'; return; }}
+            const lat = e.latlng.lat, lng = e.latlng.lng;
+
+            // 2b: combined value from depHitIndex (drawn combined footprints)
+            // chem -> {{dep: value, air: value}} — the true merged concentration
+            const combAgg = {{}};
+            for (const h of depHitIndex) {{
+                if (h.value == null) continue;
+                if (!depPointInRing(lat, lng, h.ring)) continue;
+                const a = combAgg[h.chem] || (combAgg[h.chem] = {{ dep: null, air: null }});
+                if (a[h.layer] == null || h.value > a[h.layer]) a[h.layer] = h.value;
+            }}
+
+            // 2b: per-facility attribution from perFacHitIndex (not drawn)
+            // chem -> {{dep: {{fac: value}}, air: {{fac: value}}}}
+            const facAgg = {{}};
+            for (const h of perFacHitIndex) {{
+                if (h.value == null) continue;
+                if (!depPointInRing(lat, lng, h.ring)) continue;
+                const a = facAgg[h.chem] || (facAgg[h.chem] = {{ dep: {{}}, air: {{}} }});
+                const lm = a[h.layer];
+                if (lm[h.fac] == null || h.value > lm[h.fac]) lm[h.fac] = h.value;
+            }}
+
+            const chems = Object.keys(combAgg).sort();
+            if (!chems.length) {{ depReadoutEl.style.display = 'none'; return; }}
+            let html = '<div class="dr-title">AT CURSOR &nbsp;' + lat.toFixed(3) + ', ' + lng.toFixed(3) + '</div>';
+            for (const c of chems) {{
+                html += '<div class="dr-chem">' + (DEP_CHEM_LABELS[c] || c) + '</div>';
+                for (const ld of [['dep', 'soil', 'm²'], ['air', 'air', 'm³']]) {{
+                    const combVal = combAgg[c][ld[0]];
+                    if (combVal == null) continue;
+                    html += '<div class="dr-row"><span>' + ld[1] + '</span><span>' + fmtConc(combVal, ld[2]) + '</span></div>';
+                    // Per-facility attribution breakdown
+                    const facs = (facAgg[c] || {{ dep: {{}}, air: {{}} }})[ld[0]];
+                    const names = Object.keys(facs);
+                    if (names.length > 1) {{
+                        let total = 0; for (const n of names) total += facs[n];
+                        names.sort((a, b) => facs[b] - facs[a]);
+                        for (const n of names) {{
+                            const pct = Math.round(100 * facs[n] / total);
+                            html += '<div class="dr-row" style="font-size:10px;opacity:.65;padding-left:10px"><span>' + n + '</span><span>' + pct + '%</span></div>';
+                        }}
+                    }}
+                }}
+            }}
+            depReadoutEl.innerHTML = html;
+            depReadoutEl.style.display = 'block';
+            const cp = e.containerPoint;
+            const vp = document.getElementById('map-viewport').getBoundingClientRect();
+            let x = cp.x + 16, y = cp.y + 16;
+            if (x + 270 > vp.width) x = cp.x - 270;
+            depReadoutEl.style.left = x + 'px';
+            depReadoutEl.style.top = y + 'px';
+        }});
+        map.on('mouseout', () => {{ depReadoutEl.style.display = 'none'; }});
+
         const monitorMarkers = [];
 
         // Populate monitor markers for all unique stations across all dates
@@ -2971,6 +3922,7 @@ class CalvertCityPlumeEngine:
             updateDepositionSourceSelect();
             recalculateDeposition();
             drawParticles();
+            loadDepManifest(selectedDate);
         }});
 
         function getMonitorColorAndStatus(val, thresholds) {{
@@ -3300,16 +4252,17 @@ class CalvertCityPlumeEngine:
                     toggleBtn.style.color = 'var(--text-muted)';
                     toggleBtn.style.background = 'rgba(255, 255, 255, 0.05)';
                 }}
-                if (particleSource === 'hysplit') {{
-                    updateHysplitParticles(playbackTime);
-                }} else {{
-                    recalculateDeposition();
+                // Sync map marker visibility
+                const marker = facilityMarkers[fac.id];
+                if (marker) {{
+                    if (activeFacilities[fac.id]) {{
+                        marker.addTo(map);
+                    }} else {{
+                        marker.remove();
+                    }}
                 }}
-                lastDepositionHour = -1;
-                lastDepUpdateTime = -999;
-                if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
-                renderDepositionHeatmap(playbackTime);
                 drawParticles();
+                refreshDepLayers();
             }});
 
             // Chemical checkbox toggles
@@ -3319,7 +4272,16 @@ class CalvertCityPlumeEngine:
                     const chemName = chk.dataset.chem;
                     activeChemicals[facId][chemName] = chk.checked;
                     
-                    // Filter out existing sandbox particles of this chemical immediately
+                    // If checked and global pill is unchecked, check it
+                    if (chk.checked && !depActiveChem.has(chemName)) {{
+                        const globalChk = document.querySelector(`.dep-chem-chk[data-chem="${{chemName}}"]`);
+                        if (globalChk) {{
+                            globalChk.checked = true;
+                            depActiveChem.add(chemName);
+                        }}
+                    }}
+                    
+                    // Filter out existing particles of this chemical from map immediately
                     if (!chk.checked) {{
                         particles = particles.filter(p => p.fac !== facId || p.chem !== chemName);
                     }}
@@ -3352,6 +4314,7 @@ class CalvertCityPlumeEngine:
                     if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
                     renderDepositionHeatmap(playbackTime);
                     drawParticles();
+                    refreshDepLayers();
                 }});
                 chk.addEventListener('click', (e) => {{
                     e.stopPropagation(); // Prevent dropdown collapse/expand
@@ -3402,6 +4365,7 @@ class CalvertCityPlumeEngine:
             if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
             renderDepositionHeatmap(playbackTime);
             drawParticles();
+            refreshDepLayers();
         }});
 
         // ================================================================
@@ -3548,7 +4512,8 @@ class CalvertCityPlumeEngine:
                 {{ slider: 'densitySlider',         display: 'densityVal',         fmt: v => v.toFixed(1) + '×' }},
                 {{ slider: 'sizeSlider',            display: 'sizeVal',            fmt: v => v.toFixed(1) + 'px' }},
                 {{ slider: 'stackOpacitySlider',    display: 'stackOpacityVal',    fmt: v => v.toFixed(2) }},
-                {{ slider: 'fugitiveOpacitySlider', display: 'fugitiveOpacityVal', fmt: v => v.toFixed(2) }}
+                {{ slider: 'fugitiveOpacitySlider', display: 'fugitiveOpacityVal', fmt: v => v.toFixed(2) }},
+                {{ slider: 'footprintOpacitySlider',display: 'footprintOpacityVal',fmt: v => v.toFixed(2) }}
             ];
             wirings.forEach(({{ slider, display, fmt }}) => {{
                 const sl = document.getElementById(slider);
@@ -3557,6 +4522,15 @@ class CalvertCityPlumeEngine:
                     sl.addEventListener('input', () => {{ dp.textContent = fmt(parseFloat(sl.value)); }});
                 }}
             }});
+
+            // Footprint opacity drives the deposition/air layers live
+            const fpSlider = document.getElementById('footprintOpacitySlider');
+            if (fpSlider) {{
+                fpSlider.addEventListener('input', () => {{
+                    footprintOpacity = parseFloat(fpSlider.value);
+                    refreshDepLayers();
+                }});
+            }}
         }})();
 
         // ── Collapsible Panel Toggle System ──
@@ -3603,25 +4577,37 @@ class CalvertCityPlumeEngine:
         const lonSpan = lonMax - lonMin;
 
         function interpolateGrid(grid, lat, lon) {{
+            // Derive dimensions from the ACTUAL grid slice rather than trusting GRID_SIZE.
+            // Embedded wind grids can be jagged / differently-sized than GRID_SIZE
+            // (stale data, per-hour variation); using real dims prevents out-of-range
+            // index access (grid[y][x] === undefined → crash) that would silently kill
+            // every advect() call via tick()'s try/catch.
+            const rows = grid.length;
+            const cols = (grid[0] && grid[0].length) || 1;
+            const ZERO = {{ dLat: 0, dLon: 0, sLat: 0, sLon: 0 }};
+
             let clampedLat = Math.max(latMin, Math.min(latMax, lat));
             let clampedLon = Math.max(lonMin, Math.min(lonMax, lon));
 
-            const x = ((clampedLon - lonMin) / lonSpan) * (GRID_SIZE - 1);
-            const y = ((clampedLat - latMin) / latSpan) * (GRID_SIZE - 1);
+            const x = ((clampedLon - lonMin) / lonSpan) * (cols - 1);
+            const y = ((clampedLat - latMin) / latSpan) * (rows - 1);
 
             // Robust floor mapping with explicit boundary clamping to prevent index thrashing
-            const x0 = Math.max(0, Math.min(GRID_SIZE - 2, Math.floor(x)));
+            const x0 = Math.max(0, Math.min(cols - 2, Math.floor(x)));
             const x1 = x0 + 1;
-            const y0 = Math.max(0, Math.min(GRID_SIZE - 2, Math.floor(y)));
+            const y0 = Math.max(0, Math.min(rows - 2, Math.floor(y)));
             const y1 = y0 + 1;
 
             const tx = Math.max(0, Math.min(1.0, x - x0));
             const ty = Math.max(0, Math.min(1.0, y - y0));
 
-            const v00 = grid[y0][x0];
-            const v10 = grid[y0][x1];
-            const v01 = grid[y1][x0];
-            const v11 = grid[y1][x1];
+            // Per-row fallback to ZERO guards against jagged rows of unequal length.
+            const row0 = grid[y0] || [];
+            const row1 = grid[y1] || [];
+            const v00 = row0[x0] || ZERO;
+            const v10 = row0[x1] || ZERO;
+            const v01 = row1[x0] || ZERO;
+            const v11 = row1[x1] || ZERO;
 
             const dLat = (1 - ty) * ((1 - tx) * v00.dLat + tx * v10.dLat) +
                           ty  * ((1 - tx) * v01.dLat + tx * v11.dLat);
@@ -4059,6 +5045,8 @@ class CalvertCityPlumeEngine:
         function drawParticles() {{
             resizeCanvas();
             const topLeft = map.containerPointToLayerPoint([0, 0]);
+            canvas.style.left = topLeft.x + 'px';
+            canvas.style.top = topLeft.y + 'px';
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (!showParticles) return;
 
@@ -4111,44 +5099,27 @@ class CalvertCityPlumeEngine:
                 if (opacity <= 0.01) continue;
 
                 const hBonus = Math.min(1.2, p.ht / 250.0);
-                const radius = Math.max(0.5, Math.min(liveSize * 2.5, (liveSize + hBonus) * {EMISSION_MULTIPLIER}));
+                const radius = Math.min(liveSize * 2.5, (baseR + hBonus) * {EMISSION_MULTIPLIER});
+                
+                const jx = (jHash(i, p.fac) - 0.5) * 2.5;
+                const jy = (jHash(i + 7919, p.fac) - 0.5) * 2.5;
+                const px = pt.x - topLeft.x + jx;
+                const py = pt.y - topLeft.y + jy;
+                
+                // Dark contrast halo under each particle so light colors (cyan/yellow/lime)
+                // stay visible on the light Voyager basemap.
+                ctx.beginPath();
+                ctx.arc(px, py, radius * 1.35, 0, 6.2832);
+                ctx.fillStyle = 'rgba(15,18,28,' + (opacity * 0.40) + ')';
+                ctx.fill();
 
-                const jx = (jHash(p.id, p.fac) - 0.5) * 2.5;
-                const jy = (jHash(p.id + 7919, p.fac) - 0.5) * 2.5;
-                const px = originX + (p.lon - c.lng) * pxPerLon + jx;
-                const py = originY + (p.lat - c.lat) * pxPerLat + jy;
-
-                // Bucket key: color + quantized opacity (5% steps) + type
-                const alphaBucket = Math.round(opacity * 20);
-                const bktKey = p.col + '|' + alphaBucket + '|' + p.type;
-                let bkt = _renderBuckets.get(bktKey);
-                if (!bkt) {{
-                    const rgb = getHexRgb(p.col);
-                    bkt = {{ rgb, alpha: alphaBucket / 20, isStack: p.type === 'stack',
-                            pxArr: [], pyArr: [], rArr: [] }};
-                    _renderBuckets.set(bktKey, bkt);
-                }}
-                bkt.pxArr.push(px); bkt.pyArr.push(py); bkt.rArr.push(radius);
-            }}
-
-            // Batch fill pass: one fillStyle + one path + one fill() per non-empty bucket
-            for (const bkt of _renderBuckets.values()) {{
-                if (bkt.pxArr.length === 0) continue;
-                const {{r, g, b}} = bkt.rgb;
-                ctx.fillStyle = `rgba(${{r}},${{g}},${{b}},${{bkt.alpha.toFixed(2)}})`;
                 ctx.beginPath();
                 for (let j = 0; j < bkt.pxArr.length; j++) {{
                     ctx.moveTo(bkt.pxArr[j] + bkt.rArr[j], bkt.pyArr[j]);
                     ctx.arc(bkt.pxArr[j], bkt.pyArr[j], bkt.rArr[j], 0, 6.2832);
                 }}
                 ctx.fill();
-            }}
 
-            // Glow halo pass: stack particles only, alpha * 0.17, radius * 2
-            for (const bkt of _renderBuckets.values()) {{
-                if (bkt.pxArr.length === 0 || !bkt.isStack) continue;
-                const {{r, g, b}} = bkt.rgb;
-                ctx.fillStyle = `rgba(${{r}},${{g}},${{b}},${{(bkt.alpha * 0.17).toFixed(3)}})`;
                 ctx.beginPath();
                 for (let j = 0; j < bkt.pxArr.length; j++) {{
                     ctx.moveTo(bkt.pxArr[j] + bkt.rArr[j] * 2, bkt.pyArr[j]);
@@ -4202,6 +5173,7 @@ class CalvertCityPlumeEngine:
             if (particleSource === 'hysplit') updateHysplitParticles(playbackTime);
             updateHUD();
             drawParticles();
+            refreshDepLayers();
         }});
 
         // Tooltip hover
@@ -4244,6 +5216,8 @@ class CalvertCityPlumeEngine:
                 tooltip.style.left = (mp.x + 15) + "px";
                 tooltip.style.top = (mp.y + 15) + "px";
                 tooltip.style.display = 'block';
+                // Hide dep-readout to prevent double-popup overlap
+                depReadoutEl.style.display = 'none';
             }} else {{
                 if (showDeposition && particleSource !== 'hysplit' && liveDepMax > 0) {{
                     // Sandbox mode: query liveDepGrid directly
@@ -4254,7 +5228,9 @@ class CalvertCityPlumeEngine:
                     const cellLon = Math.round(mouseLon / grid_spacing) * grid_spacing;
                     const cellKey = cellLat.toFixed(4) + ',' + cellLon.toFixed(4);
                     const cell = liveDepGrid.get(cellKey);
-                    if (cell !== undefined && cell.val > 0) {{
+                    // Raised threshold: avoid ghost popups in areas with no visible particles
+                    const depMinThreshold = liveDepMax * 0.005;
+                    if (cell !== undefined && cell.val > depMinThreshold) {{
                         tooltipTitle.textContent = "🌡️ Surface Deposition";
                         tooltipTitle.style.color = "#f59e0b";
                         const depGrid = PLUME_DATA.deposition_grid;
@@ -4274,6 +5250,8 @@ class CalvertCityPlumeEngine:
                         tooltip.style.left = (mp.x + 15) + "px";
                         tooltip.style.top = (mp.y + 15) + "px";
                         tooltip.style.display = 'block';
+                        // Hide dep-readout to prevent double-popup overlap
+                        depReadoutEl.style.display = 'none';
                         return;
                     }}
                 }}
@@ -4354,6 +5332,7 @@ class CalvertCityPlumeEngine:
             if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
             updateHUD();
             drawParticles();
+            refreshDepLayers();
         }});
 
         // Map redraws
@@ -4363,7 +5342,14 @@ class CalvertCityPlumeEngine:
                 depositionHeatLayer._reset();
         }});
         map.on('zoom', drawParticles);
+        // Fix zoom-drift: clear canvas during zoom animation so particles don't visually drift
+        map.on('zoomanim', (e) => {{
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }});
         map.on('zoomend', () => {{
+            // Force canvas reposition after zoom finishes
+            resizeCanvas();
+            drawParticles();
             if (showDeposition) {{
                 // Force layer recreation so new zoom-based radius/blur opts are picked up
                 if (depositionHeatLayer) {{ map.removeLayer(depositionHeatLayer); depositionHeatLayer = null; }}
@@ -4560,17 +5546,17 @@ class CalvertCityPlumeEngine:
 
         // Main animation loop
         let lastTimestamp = null;
-        
+
         function tick(timestamp) {{
             if (!lastTimestamp) lastTimestamp = timestamp;
             const deltaSec = (timestamp - lastTimestamp) / 1000;
             lastTimestamp = timestamp;
-            
+
             if (isPlaying) {{
                 const hourRate = getSpeedMultiplier();
                 const dtHours = deltaSec * hourRate;
                 playbackTime += dtHours;
-                
+
                 if (playbackTime > 24.0) {{
                     playbackTime = 0.0;
                     particles = [];
@@ -4580,33 +5566,24 @@ class CalvertCityPlumeEngine:
                     liveDepGrid = new Map();
                     liveDepMax = 0;
                 }}
-                
-                if (particleSource === 'hysplit') {{
-                    // ── HYSPLIT mode: interpolate pre-computed trajectories ──
-                    // This is CPU-cheap: no physics, just lerping stored coordinates.
-                    updateHysplitParticles(playbackTime);
-                }} else {{
-                    // ── Sandbox mode: run real-time physics simulation ──
-                    spawnBatch(dtHours);
+
+                // Crash-proof: a throw in particle/dep code must NEVER freeze the animation loop.
+                try {{
+                    if (playbackTime - lastSpawnTime >= SPAWN_INTERVAL) {{
+                        spawnBatch();
+                        lastSpawnTime = playbackTime;
+                    }}
                     advect(dtHours);
-                }}
-
+                }} catch (e) {{ if (!window._partErr) {{ console.error('particle update error:', e); window._partErr = true; }} }}
                 prevPlaybackTime = playbackTime;
-                updateHUD();
 
-                // Update deposition heatmap with sub-hour blending (throttled: max once per 120ms real time)
-                const nowMs = performance.now();
-                if (showDeposition && nowMs - lastDepRenderMs >= 120) {{
-                    lastDepRenderMs = nowMs;
-                    lastDepUpdateTime = playbackTime;
-                    lastDepositionHour = Math.floor(playbackTime); // keep compat
-                    renderDepositionHeatmap(playbackTime);
-                }}
+                updateHUD();
+                try {{ maybeAnimateDep(); }} catch (e) {{ if (!window._depErr) {{ console.error('dep animate error:', e); window._depErr = true; }} }}
             }}
-            
-            drawParticles();
+
+            try {{ drawParticles(); }} catch (e) {{ if (!window._drawErr) {{ console.error('drawParticles error:', e); window._drawErr = true; }} }}
             if (lastMouseEvt && tooltip.style.display === 'block') {{
-                updateTooltip(lastMouseEvt);
+                try {{ updateTooltip(lastMouseEvt); }} catch (e) {{}}
             }}
             requestAnimationFrame(tick);
         }}
@@ -4624,6 +5601,7 @@ class CalvertCityPlumeEngine:
 
         // Boot
         requestAnimationFrame(tick);
+        loadDepManifest(activeDate);
     </script>
 </body>
 </html>
@@ -4836,6 +5814,11 @@ if __name__ == "__main__":
 
                 # Step 3: Compile coordinates, EPA data, and deposition grids
                 compiled_json = pipeline.compile_data_for_json(raw_output, deposition_data)
+
+                # Step 3.5: Run HYSPLIT deposition simulation and combine chemical outputs
+                print("\n========================================\nRunning Deposition Pipeline")
+                pipeline.run_deposition_pipeline()
+                pipeline.build_combined_chemical_outputs()
 
                 # Step 4: Add to master archive
                 master_archive[d_str] = {
