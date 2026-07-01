@@ -2436,11 +2436,23 @@ class CalvertCityPlumeEngine:
         output_path = os.path.join(self.workspace_dir, self.output_html_name)
         print(f"Generating web visualization index.html at: {output_path}...")
         
-        # Serialize the simulation data to embed directly in the script template
-        archive_json_data = json.dumps(master_archive, indent=2)
+        # Drop the raw HYSPLIT PARDUMP particle timelines from the embed: they fed the old
+        # updateHysplitParticles() replay, which the particle rework replaced with wind-advected
+        # sandbox particles. That code is commented out, so PLUME_DATA.particles is now dead weight
+        # (~3 MB). Strip it here so the page doesn't ship/parse unused data. (Kept in the .py-side
+        # master_archive object only; simply not embedded.)
+        for _d in master_archive.values():
+            if isinstance(_d, dict) and isinstance(_d.get('plumes'), dict):
+                _d['plumes'].pop('particles', None)
+
+        # Serialize the simulation data to embed directly in the script template.
+        # Compact separators (no indent, no spaces) — this is machine-embedded JSON that the
+        # browser must PARSE on load, so pretty-printing just bloats the file (~18 MB of pure
+        # whitespace at indent=2) and slows the page. Same data, ~29 MB → ~10.7 MB.
+        archive_json_data = json.dumps(master_archive, separators=(',', ':'))
 
         # Deposition GeoJSON embedded inline (file:// blocks fetch of local files)
-        dep_archive_json = json.dumps(self.build_deposition_archive(list(master_archive.keys())))
+        dep_archive_json = json.dumps(self.build_deposition_archive(list(master_archive.keys())), separators=(',', ':'))
 
         html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -3238,7 +3250,7 @@ class CalvertCityPlumeEngine:
                 <div style="margin-top:12px;">
                     <div style="display:flex;align-items:center;gap:5px;margin-bottom:8px;">
                         <span style="font-size:10px;color:var(--text-muted);font-weight:600;letter-spacing:.05em;">FOOTPRINT LAYERS</span>
-                        <span class="dep-info-btn" title="Soil Deposition (g/m²): compounds that physically settle onto ground. Chlorine and ammonia show meaningful deposits; VOCs show tiny footprints (honest).&#10;&#10;Ground-Level Air (g/m³): breathing-zone concentration at ~10m. All chemicals show a footprint here — this is what you inhale.&#10;&#10;Frames update every 12h (macOS HYSPLIT constraint). Deposition grows cumulatively; air shows the current period.">ⓘ</span>
+                        <span class="dep-info-btn" title="Soil Deposition (g/m²): compounds that physically settle onto ground. Chlorine and ammonia show meaningful deposits; VOCs show tiny footprints (honest).&#10;&#10;Ground-Level Air (g/m³): breathing-zone concentration at ~10m. All chemicals show a footprint here — this is what you inhale.&#10;&#10;Frames update hourly (23 hourly frames over sim hours 2–24). Deposition accumulates over the day; air shows each hour's concentration.">ⓘ</span>
                     </div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
                         <span style="font-size:11px;color:var(--text-primary);">Soil Deposition <span style="color:var(--text-muted);font-size:9px;">(g/m²)</span></span>

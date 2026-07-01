@@ -388,9 +388,20 @@ User asked why particles don't line up with the far edge of the air footprint. T
   offered a vertical-gate relaxation or a dispersion boost. No code change made. If ever revisited: relax the gate
   for elevated stack particles (most honest), or raise `SPREAD_KICK`/`TURB_*` for a fuller (noisier) look.
 
+## ✅ SLIMMED 2026-07-01: index.html 58 MB → 33 MB (faster load)
+User reported slow load. Two safe wins in the embed step (`calvert_plume_engine_one_day.py` ~2440):
+(1) `historicalSimulationArchive` was `json.dumps(indent=2)` — ~18 MB of pure whitespace the browser had
+to parse; switched both archives to `separators=(',', ':')` (compact). (2) Dropped `PLUME_DATA.particles`
+(~3 MB raw PARDUMP timelines) from the embed — it only fed the commented-out `updateHysplitParticles`
+replay, so it was dead weight (`_d['plumes'].pop('particles', None)` before dump). Verified headless:
+`drawError: null`, ~97% render, no INIT_ERROR, `"particles":` gone from data. `deposition_grid` (6.65 MB)
+was KEPT — still referenced by live code. Also fixed the FOOTPRINT LAYERS ⓘ tooltip: removed the false
+"Frames update every 12h (macOS HYSPLIT constraint)" → "hourly (23 frames, sim hours 2–24)".
+
 ## ⚠️ OPEN ITEMS (do in the particle-rework pass)
-1. **58MB embed** — dual-source (stack+fugitive) + 3 combined modes embeds 53 files → index.html ~58MB.
-   Too big; slim it (embed only what's drawn, or drop per-facility files / decimate harder).
+1. **Further slim the ~33 MB embed** — depositionArchive is still ~27 MB of GeoJSON. Next levers (riskier,
+   affect visuals/hover/gating): decimate contour vertices harder, round coords to 3 dp, or embed only the
+   footprints actually drawn (drop per-facility files used only for hover attribution + gating).
 2. **`-v` fixed contour levels** (user-requested "correct fix"): `concplot -c1` auto-scales levels per
    field, so combined/stack/fugitive aren't level-for-level comparable (combined ammonia got 2-decade
    steps). Switch to explicit shared `-v` levels so band N = same g/m² everywhere. (The
