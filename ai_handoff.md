@@ -487,18 +487,28 @@ the clinics but that reintroduced the grid "square" (tetrachloroethylene's 2-dec
 past the ~220 km grid half-span). Kept at **32** (same as air). The right lever is choosing days whose
 HIGH-concentration deposition actually blows over the clinics, not loosening the filter.
 
-**Size:** 3 full days embed at **~46 MB** (was 33 MB/day). Wins (all in `build_deposition_archive` /
-`generate_web_visualization`): dropped `particles` (~3 MB/day) AND the now-dead `deposition_grid`
-(~6.6 MB/day — footprints come from `depositionArchive`; only dead/disabled code read it), compact JSON,
-`_slim_geojson()` (round coords to 3 dp + decimate rings >8 pts by half). `MET_20250309..14.ARL` were
-deleted to free disk; only `MET_20250308/0215/20240108.ARL` remain (re-downloadable).
+**Size — 3 full days at ~21 MB** (was 33 MB/day). Wins (all in `build_deposition_archive` /
+`generate_web_visualization`): (1) **`EMBED_PER_FACILITY_FOOTPRINTS = False`** — drop the per-facility
+footprint files (~55% of the deposition data / 25 MB). They fed only particle GATING (which falls back
+to the COMBINED footprints in `airBandAtPoint`) and the per-facility % attribution in the deposition
+hover readout (the ONLY feature lost — combined value, clinic popups, drawn footprints all unaffected).
+Also clears `manifest["entries"]` so `airBandAtPoint` doesn't hit a dangling per-facility key and returns
+combined instead. Set the flag True to restore (→ ~46 MB). (2) dropped `particles` + dead `deposition_grid`.
+(3) compact JSON + `_slim_geojson()` (3 dp coords + decimate rings >8 pts). `MET_20250309..14.ARL` deleted
+to free disk; `MET_20250308/0215/20240108.ARL` remain.
 
-**✅ Heat/battery fixed (2026-07-02):** the `tick` render loop used to call `drawParticles()` every rAF
-even when paused/backgrounded (pegged GPU/WindowServer on laptops). Now: (1) a `document.hidden` guard
-returns early when the tab isn't visible (also a `visibilitychange` listener nulls `lastTimestamp` so
-there's no time-jump on return); (2) `drawParticles()` + the per-frame tooltip refresh moved INSIDE the
-`if (isPlaying)` block, so at idle the canvas isn't repainted 60×/sec. Safe because every interaction
-(pan/zoom/toggles/date/display-mode/reset) already calls `drawParticles()` from its own handler.
+**✅ Heat/battery fixed (2026-07-02):** the `tick` loop repainted every rAF (pegged GPU/WindowServer,
+esp. 120 Hz ProMotion). Fixes: (1) `document.hidden` guard skips all work when the tab's backgrounded
+(+ `visibilitychange` nulls `lastTimestamp`); (2) `drawParticles()` + tooltip refresh moved INSIDE
+`if (isPlaying)` so idle doesn't repaint (safe — every interaction handler calls `drawParticles()`
+itself); (3) **`FRAME_MIN_MS = 1000/60`** caps the sim+render to 60 fps (halves 120 Hz load); (4) removed
+the dead per-particle `liveDepGrid` accumulation (string+Map ops ×1500/frame, fed only the disabled
+heatmap); (5) `maybeAnimateDep` real-time throttle (~150 ms, was ~12×/sec SVG rebuild).
+⚠️ **Frame-rate-independent turbulence (`randCorr` in `advect`):** the random-walk jitter is scaled by
+`sqrt(hourRate/(120·dtHours))` so its DIFFUSION matches the 120 fps reference at any fps. Without it, a
+plain `*dtHours` random step jitters harder + over-diffuses at low fps — that's what made the 30 fps cap
+look "shaky" and spread particles past the footprint late in the day. Deterministic advection still uses
+full `dtHours`. If you ever change the fps cap, keep this.
 
 ## ⚠️ OPEN ITEMS (do in the particle-rework pass)
 1. **Further slim the ~33 MB embed** — depositionArchive is still ~27 MB of GeoJSON. Next levers (riskier,

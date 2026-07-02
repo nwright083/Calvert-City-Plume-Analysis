@@ -24,6 +24,11 @@ DEFAULT_ACTIVE_CHEMICALS = [
     "CHLORINE", "AMMONIA"
 ]
 
+# Embed per-facility deposition footprints in index.html? They are ~55% of the deposition data and are
+# used only for particle gating (which falls back to the combined footprints) and the per-facility %
+# breakdown in the deposition hover readout. False → much smaller file, losing only that hover-%.
+EMBED_PER_FACILITY_FOOTPRINTS = False
+
 # --- LANDMARK LOCATIONS: VETERINARY CLINICS ---
 # Public-facing landmarks shown on the map (toggleable under LAYERS → LOCATIONS). Coordinates were
 # geocoded from the street addresses (OpenStreetMap Nominatim; US Census geocoder for the few
@@ -2467,19 +2472,27 @@ class CalvertCityPlumeEngine:
             except Exception:
                 continue
 
-            # Remap per-facility entry fac_id to the re-indexed embedded facility ids so the
-            # frontend's activeFacilities/activeChemicals lookups (keyed by the embedded id) line up
-            # with the deposition hover attribution. The on-disk manifest keeps original ids; this is
-            # an in-memory remap only. Combined entries (fac_id = -1) are left as-is. (Removed
-            # facilities have no modeled chemicals, hence no per-facility entries, so none are lost.)
-            remap = getattr(self, "orig_to_new_fac_id", {}) or {}
-            if remap:
-                for entry in manifest.get("entries", []):
-                    if entry.get("fac_id") in remap:
-                        entry["fac_id"] = remap[entry["fac_id"]]
+            # ── Slim the embed: drop the per-facility footprint files (biggest size lever) ──
+            # The per-facility footprints are ~55% of the deposition data. They're used ONLY for (a)
+            # particle gating — which falls back to the COMBINED footprints automatically — and (b) the
+            # per-facility % attribution in the deposition hover readout. Dropping them shrinks the file
+            # a lot; the only loss is that hover-% breakdown (the combined value, the clinic popups, and
+            # the drawn footprints all come from the combined entries and are unaffected). We also clear
+            # manifest["entries"] so airBandAtPoint doesn't find a dangling per-facility key (which would
+            # make it return null instead of falling through to combined). Set to False to restore.
+            if EMBED_PER_FACILITY_FOOTPRINTS:
+                remap = getattr(self, "orig_to_new_fac_id", {}) or {}
+                if remap:
+                    for entry in manifest.get("entries", []):
+                        if entry.get("fac_id") in remap:
+                            entry["fac_id"] = remap[entry["fac_id"]]
+                file_entries = manifest.get("entries", []) + manifest.get("combined_entries", [])
+            else:
+                manifest["entries"] = []
+                file_entries = manifest.get("combined_entries", [])
 
             files = {}
-            for entry in manifest.get("entries", []) + manifest.get("combined_entries", []):
+            for entry in file_entries:
                 fpath = os.path.join(date_dir, entry["file"])
                 if os.path.exists(fpath):
                     try:
@@ -3917,10 +3930,16 @@ class CalvertCityPlumeEngine:
 
         // Throttled animation tick (called from the main playback loop)
         let _lastDepHour = -999;
+        let _lastDepMs = 0;
         function maybeAnimateDep() {{
             const hour = (typeof playbackTime === 'number') ? playbackTime : 0;
-            if (Math.abs(hour - _lastDepHour) >= 0.08) {{
+            // refreshDepLayers() rebuilds hundreds of footprint SVG polygons — expensive. Throttle it
+            // to a real-time floor (~150ms = ~6/sec) AND a sim-hour step, so the cross-fade stays
+            // smooth without churning the DOM 12×/sec. Big DOM/paint/heat saving.
+            const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+            if (Math.abs(hour - _lastDepHour) >= 0.08 && (now - _lastDepMs) >= 150) {{
                 _lastDepHour = hour;
+                _lastDepMs = now;
                 refreshDepLayers();
             }}
         }}
@@ -5276,6 +5295,13 @@ class CalvertCityPlumeEngine:
             const displayMode = document.getElementById('display-mode-select').value;
             const dtSec = dtHours * 3600.0;
             const grid_spacing = 0.002;
+            // Frame-rate-independent turbulence. The random-walk jitter is a diffusion process: a plain
+            // "* dtHours" step makes it diffuse MORE and jump HARDER per frame at lower fps (that's why
+            // 30fps looked shaky and over-spread). Scaling the random step by this factor keeps its
+            // diffusion matched to the reference 120fps look at ANY frame rate. Deterministic advection
+            // (wind + directional fan-out) still uses the full dtHours. Computed once per call.
+            const _hourRate = getSpeedMultiplier();
+            const randCorr = (dtHours > 0) ? Math.sqrt(_hourRate / (120.0 * dtHours)) : 1.0;
             let writeIdx = 0;
             for (let i = 0; i < particles.length; i++) {{
                 const p = particles[i];
@@ -5311,8 +5337,10 @@ class CalvertCityPlumeEngine:
                 // Balance random-walk dispersion near source clusters and at low velocities
                 const windMag = Math.hypot(wind.dLat, wind.dLon);
                 const noiseScale = Math.min(1.0, ageH * 4.0) * Math.min(1.0, windMag / 0.01);
-                p.lat += (wind.dLat + p.tLat * spreadLat + (Math.random() - 0.5) * spreadLat * 0.4 * noiseScale) * dtHours;
-                p.lon += (wind.dLon + p.tLon * spreadLon + (Math.random() - 0.5) * spreadLon * 0.4 * noiseScale) * dtHours;
+                // Deterministic advection (wind + directional fan-out) × dtHours; random-walk jitter
+                // × dtHours × randCorr so its diffusion is frame-rate-independent (no shakiness).
+                p.lat += (wind.dLat + p.tLat * spreadLat) * dtHours + (Math.random() - 0.5) * spreadLat * 0.4 * noiseScale * dtHours * randCorr;
+                p.lon += (wind.dLon + p.tLon * spreadLon) * dtHours + (Math.random() - 0.5) * spreadLon * 0.4 * noiseScale * dtHours * randCorr;
                 if (p.type === 'fugitive') {{
                     p.ht = Math.max(0, Math.min(10, p.ht + (Math.random() - 0.5) * 1 * dtHours));
                 }} else {{
@@ -5343,20 +5371,10 @@ class CalvertCityPlumeEngine:
                     p.mass = p.mass + k * (target - p.mass);
                 }}
 
-                // Accumulate deposited mass into the live grid (edge deposits more)
-                if (p.ht < 30.0) {{
-                    const depRate = (b !== null) ? (1.0 - bandToBrightness(b, 5)) * 0.01 : 0.005;
-                    const cellLat = Math.round(p.lat / grid_spacing) * grid_spacing;
-                    const cellLon = Math.round(p.lon / grid_spacing) * grid_spacing;
-                    const cellKey = cellLat.toFixed(4) + ',' + cellLon.toFixed(4);
-                    let cell = liveDepGrid.get(cellKey);
-                    if (!cell) {{
-                        cell = {{ lat: cellLat, lon: cellLon, val: 0.0 }};
-                        liveDepGrid.set(cellKey, cell);
-                    }}
-                    cell.val += depRate;
-                    if (cell.val > liveDepMax) liveDepMax = cell.val;
-                }}
+                // [Removed: the per-particle liveDepGrid accumulation. It ran string-key + Map ops
+                //  for every particle every frame but only fed renderDepositionHeatmap(), which is
+                //  disabled — pure dead-weight CPU/heat. Deposition is shown via the HYSPLIT footprint
+                //  contours (depositionArchive), not this grid.]
 
                 /* [COMMENTED OUT — old vd-based mass drain, replaced by footprint gating above]
                 // Dry deposition: near-surface particles lose mass proportional to Vd (m/s)
@@ -5871,16 +5889,31 @@ class CalvertCityPlumeEngine:
 
         // Main animation loop
         let lastTimestamp = null;
-        
+        let lastFrameMs = -1;
+        const FRAME_MIN_MS = 1000 / 60;   // cap the sim+render to ~60fps (halves 120Hz ProMotion load
+                                          // while keeping motion smooth — 30fps made the per-frame
+                                          // turbulence jitter step too large, so particles looked shaky
+                                          // and over-diffused late in the day)
+
         // Reset the frame clock when the tab becomes visible again so we don't take one huge
         // time-step after being backgrounded.
-        document.addEventListener('visibilitychange', () => {{ if (!document.hidden) lastTimestamp = null; }});
+        document.addEventListener('visibilitychange', () => {{ if (!document.hidden) {{ lastTimestamp = null; lastFrameMs = -1; }} }});
 
         function tick(timestamp) {{
+            requestAnimationFrame(tick);   // always keep the loop alive
+
             // ── Power/heat saver #1: do nothing while the tab is hidden ──
             // Skip the sim + canvas repaint entirely when backgrounded so the page doesn't peg the
             // GPU/CPU in a tab nobody is looking at (browsers throttle rAF here, so this is cheap).
-            if (document.hidden) {{ lastTimestamp = timestamp; requestAnimationFrame(tick); return; }}
+            if (document.hidden) {{ lastTimestamp = timestamp; return; }}
+
+            // ── Power/heat saver #3: frame-rate cap (~30fps) ──
+            // rAF fires at the display refresh (60Hz, or 120Hz on ProMotion Macs). Advecting ~1500
+            // particles + footprint gating + canvas repaint 120×/sec is what makes the laptop hot.
+            // Processing at ~30fps looks smooth for this animation and cuts the work 2–4×. Playback
+            // speed is unaffected — dtHours scales with real elapsed time.
+            if (lastFrameMs >= 0 && (timestamp - lastFrameMs) < FRAME_MIN_MS - 1) return;
+            lastFrameMs = timestamp;
 
             if (!lastTimestamp) lastTimestamp = timestamp;
             const deltaSec = (timestamp - lastTimestamp) / 1000;
@@ -5923,8 +5956,6 @@ class CalvertCityPlumeEngine:
                     try {{ updateTooltip(lastMouseEvt); }} catch (e) {{}}
                 }}
             }}
-
-            requestAnimationFrame(tick);
         }}
 
         // Boot
