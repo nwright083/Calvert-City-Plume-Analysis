@@ -2,8 +2,8 @@
 # GLOBAL CONFIGURATION COMPONENT (CALVERT CITY PLUME SANDBOX)
 # ==============================================================================
 # --- MULTI-DATE BATCH PROCESSING CONTROLS ---
-START_DATE = "2025-03-08"  # YYYY-MM-DD format for batch week initialization
-END_DATE = "2025-03-08"    # Consecutive 7-day simulation window end date
+START_DATE = "2024-01-08"  # YYYY-MM-DD format for batch week initialization
+END_DATE = "2024-01-08"    # Consecutive 7-day simulation window end date
 WEATHER_CACHE_DIR = "~/hysplit/weather_cache"  # Persistent directory for NOAA HRRR grids
 WEATHER_BOX_RADIUS_KM = 50  # Bounding box size for local weather cropping
 
@@ -2484,7 +2484,7 @@ class CalvertCityPlumeEngine:
                 if os.path.exists(fpath):
                     try:
                         with open(fpath) as f:
-                            files[entry["file"]] = json.load(f)
+                            files[entry["file"]] = self._slim_geojson(json.load(f))
                     except Exception:
                         pass
             if files:
@@ -2492,6 +2492,30 @@ class CalvertCityPlumeEngine:
         total = sum(len(v["files"]) for v in archive.values())
         print(f"Deposition archive: {len(archive)} date(s), {total} facility-chemical file(s) embedded")
         return archive
+
+    @staticmethod
+    def _slim_geojson(fc: Dict[str, Any]) -> Dict[str, Any]:
+        """Shrink an embedded deposition FeatureCollection to cut index.html size (no re-run needed):
+        round coordinates to 3 dp (~111 m — finer than the ~3 km grid, so no visible change) and
+        decimate long polygon rings (drop every other vertex, keeping first/last, above 8 points).
+        Contours are already smoothed; point-in-polygon (clinic popups, gating) is unaffected at
+        this scale. Typically ~35-45% smaller.
+        """
+        for feat in fc.get("features", []):
+            geom = feat.get("geometry") or {}
+            coords = geom.get("coordinates")
+            if not coords:
+                continue
+            new_rings = []
+            for ring in coords:  # Polygon: list of rings
+                pts = [[round(pt[0], 3), round(pt[1], 3)] for pt in ring]
+                if len(pts) > 8:
+                    pts = [pts[i] for i in range(0, len(pts), 2)]
+                    if pts[-1] != ring[-1][:2] and len(ring) > 1:
+                        pts.append([round(ring[-1][0], 3), round(ring[-1][1], 3)])
+                new_rings.append(pts)
+            geom["coordinates"] = new_rings
+        return fc
 
     def generate_web_visualization(self, master_archive: Dict[str, Any]):
         """
@@ -2504,14 +2528,19 @@ class CalvertCityPlumeEngine:
         output_path = os.path.join(self.workspace_dir, self.output_html_name)
         print(f"Generating web visualization index.html at: {output_path}...")
         
-        # Drop the raw HYSPLIT PARDUMP particle timelines from the embed: they fed the old
-        # updateHysplitParticles() replay, which the particle rework replaced with wind-advected
-        # sandbox particles. That code is commented out, so PLUME_DATA.particles is now dead weight
-        # (~3 MB). Strip it here so the page doesn't ship/parse unused data. (Kept in the .py-side
-        # master_archive object only; simply not embedded.)
+        # Strip dead-weight fields from the embed (kept in the .py-side object; just not shipped):
+        #  - 'particles': raw PARDUMP timelines for the old updateHysplitParticles() replay (commented
+        #    out; ~3 MB/date).
+        #  - 'deposition_grid': the old precomputed/particle-accumulated deposition grid (~6.6 MB/date).
+        #    All embedded reads are dead now — the deposition FOOTPRINTS come from depositionArchive
+        #    (GeoJSON); the only remaining references are a commented tooltip, the disabled
+        #    renderDepositionHeatmap(), and the legacy 'HYSPLIT Reference' source option (whose
+        #    select element doesn't exist in the current HTML). deposition_grid is also rebuilt at
+        #    runtime from live particles, so dropping the embedded copy is safe.
         for _d in master_archive.values():
             if isinstance(_d, dict) and isinstance(_d.get('plumes'), dict):
                 _d['plumes'].pop('particles', None)
+                _d['plumes'].pop('deposition_grid', None)
 
         # Serialize the simulation data to embed directly in the script template.
         # Compact separators (no indent, no spaces) — this is machine-embedded JSON that the
@@ -3271,6 +3300,12 @@ class CalvertCityPlumeEngine:
         .vet-pop .vp-title {{ font-weight:600; font-size:13px; color:#fff; margin-bottom:3px; padding-right:16px; line-height:1.35; }}
         .vet-pop .vp-addr {{ color:#9ca3af; font-size:11px; margin-bottom:8px; line-height:1.4; }}
         .vet-pop .vp-dep {{ font-size:11px; line-height:1.55; border-top:1px solid rgba(255,255,255,.12); padding-top:7px; }}
+        .vet-pop .vp-more {{ color:#93c5fd; cursor:pointer; text-decoration:underline; text-decoration-style:dotted; white-space:nowrap; }}
+        .vet-pop .vp-more:hover {{ color:#bfdbfe; }}
+        .vet-pop .vp-arrow {{ font-size:9px; text-decoration:none; display:inline-block; }}
+        .vet-pop .vp-chemlist {{ margin-top:6px; border-top:1px dashed rgba(255,255,255,.12); padding-top:5px; }}
+        .vet-pop .vp-chemrow {{ display:flex; justify-content:space-between; gap:12px; padding:1px 0; color:rgba(255,255,255,.8); font-size:10.5px; }}
+        .vet-pop .vp-chemrow span:first-child {{ text-transform:capitalize; }}
         .dep-chem-pill {{ display:flex; align-items:center; gap:3px; font-size:9px; color:var(--text-muted); cursor:pointer; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:2px 6px; white-space:nowrap; }}
         .dep-chem-pill input {{ cursor:pointer; margin:0; }}
         .dep-chem-pill:has(input:checked) {{ border-color:rgba(255,255,255,.25); color:rgba(255,255,255,.8); }}
@@ -3320,7 +3355,7 @@ class CalvertCityPlumeEngine:
                 <div class="divider"></div>
                 <div style="margin-top: 12px;">
                     <label for="date-picker" style="font-size: 10px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px; letter-spacing: 0.05em;">SIMULATION DATE</label>
-                    <input type="date" id="date-picker">
+                    <select id="date-picker"></select>
                 </div>
                 <div style="margin-top: 12px;">
                     <label for="pollutant-select" style="font-size: 10px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px; letter-spacing: 0.05em;">EPA AIR QUALITY PARAMETER</label>
@@ -3578,6 +3613,12 @@ class CalvertCityPlumeEngine:
         // trails (>1.5 decades below peak) are what clipped into the grid "square" — hiding them keeps
         // the footprint inside the grid and shows only meaningful deposition.
         const VISIBLE_DECADE_RATIO = 32;  // keep bands with value >= peakValue / 32
+        // SOIL DEPOSITION uses the SAME 32 threshold. (A looser 100 was tried to push the footprint
+        // toward the clinics, but per-chemical band structure varies — e.g. tetrachloroethylene's
+        // 2-decade band reaches ~232 km, past the ~220 km grid half-span → the "square" clip returns.
+        // Instead we pick simulation days whose HIGH-concentration deposition genuinely blows over the
+        // clinics, and the clinic popups report the true all-band value at each location.)
+        const DEP_VISIBLE_DECADE_RATIO = 32;
 
         let depManifest = null;
         let depGeoJsonCache = {{}};
@@ -3802,7 +3843,7 @@ class CalvertCityPlumeEngine:
                     const bandVals = (md.band_values || {{}})[layerName] || {{}};
                     let peakVal = 0;
                     for (const b in bandVals) if (bandVals[b] > peakVal) peakVal = bandVals[b];
-                    const visFloor = peakVal / VISIBLE_DECADE_RATIO;
+                    const visFloor = peakVal / (layerName === 'dep' ? DEP_VISIBLE_DECADE_RATIO : VISIBLE_DECADE_RATIO);
                     const draw = (frameIdx, factor) => {{
                         if (factor <= 0.002) return;
                         const feats = fc.features.filter(f =>
@@ -3861,7 +3902,7 @@ class CalvertCityPlumeEngine:
                     const bandVals = (md.band_values || {{}})[layerName] || {{}};
                     let peakVal = 0;
                     for (const b in bandVals) if (bandVals[b] > peakVal) peakVal = bandVals[b];
-                    const visFloor = peakVal / VISIBLE_DECADE_RATIO;
+                    const visFloor = peakVal / (layerName === 'dep' ? DEP_VISIBLE_DECADE_RATIO : VISIBLE_DECADE_RATIO);
                     const feats = fc.features.filter(f =>
                         f.properties.layer === layerName && f.properties.hour_frame === fLow
                         && bandVals[f.properties.band] >= visFloor);
@@ -4026,9 +4067,20 @@ class CalvertCityPlumeEngine:
 
         // Configure Date Picker
         const datePicker = document.getElementById('date-picker');
-        datePicker.min = "{START_DATE}";
-        datePicker.max = "{END_DATE}";
-        datePicker.value = activeDate;
+        // Populate the dropdown from whatever dates are embedded (one <option> per available day),
+        // so switching between simulation days works regardless of how many are bundled.
+        (function initDatePicker() {{
+            const dates = Object.keys(historicalSimulationArchive).sort();
+            datePicker.innerHTML = '';
+            dates.forEach(d => {{
+                const opt = document.createElement('option');
+                opt.value = d;
+                const dt = new Date(d + 'T00:00:00');
+                opt.textContent = dt.toLocaleDateString('en-US', {{ month: 'short', day: 'numeric', year: 'numeric' }});
+                datePicker.appendChild(opt);
+            }});
+            datePicker.value = activeDate;
+        }})();
 
         function syncActiveMonitorLayer(selectedPollutant) {{
             activeMonitorLayer.clearLayers();
@@ -4375,30 +4427,79 @@ class CalvertCityPlumeEngine:
 
         // Soil deposition at a point, from the currently-drawn combined soil footprints (depHitIndex).
         // Returns {{maxVal, minBand, chem}} or null if the point is outside every dep contour this hour.
+        // TRUE soil deposition at a point: queries the combined SOIL footprints directly across ALL
+        // bands (not just the drawn/visible ones), so a clinic gets its real value even where the
+        // drawn footprint doesn't reach. Matches the current display mode + active chemicals + frame.
         function soilDepAtPoint(lat, lon) {{
-            let maxVal = 0, minBand = 99, chem = '', hit = false;
-            for (const h of depHitIndex) {{
-                if (h.layer !== 'dep' || h.value == null) continue;
-                if (!depPointInRing(lat, lon, h.ring)) continue;
-                hit = true;
-                if (h.value > maxVal) {{ maxVal = h.value; chem = h.chem; }}
-                if (h.band < minBand) minBand = h.band;
-            }}
-            return hit ? {{ maxVal: maxVal, minBand: minBand, chem: chem }} : null;
+            if (typeof depManifest === 'undefined' || !depManifest) return null;
+            const modeEl = document.getElementById('display-mode-select');
+            const wantSrc = (modeEl && modeEl.value !== 'combined') ? modeEl.value : '';
+            const hour = (typeof playbackTime === 'number') ? playbackTime : 24;
+            const perChem = {{}};   // chem -> highest soil-dep value covering this point
+            (depManifest.combined_entries || []).forEach(entry => {{
+                if ((entry.source_type || '') !== wantSrc) return;
+                if (typeof depActiveChem !== 'undefined' && depActiveChem.size && !depActiveChem.has(entry.chem)) return;
+                const fc = depGeoJsonCache[entry.file];
+                if (!fc || !fc.features) return;
+                const md = fc.metadata || {{}};
+                const N = md.num_frames || 1;
+                const S = (md.start_hour != null) ? md.start_hour : 2;
+                const fp = Math.max(0, Math.min(N - 1, Math.floor(hour - S)));
+                const bv = (md.band_values || {{}}).dep || {{}};
+                for (const f of fc.features) {{
+                    if (f.properties.layer !== 'dep' || f.properties.hour_frame !== fp) continue;
+                    if (!depPointInRing(lat, lon, f.geometry.coordinates[0])) continue;
+                    const v = bv[f.properties.band] || 0;
+                    if (!(entry.chem in perChem) || v > perChem[entry.chem]) perChem[entry.chem] = v;
+                }}
+            }});
+            const list = Object.keys(perChem).map(c => ({{ chem: c, val: perChem[c] }}))
+                                             .sort((a, b) => b.val - a.val);
+            return list.length ? {{ list: list }} : null;
+        }}
+
+        function depRisk(v) {{
+            if (v >= 1e-4) return {{ label: 'Elevated', color: '#ef4444' }};
+            if (v >= 1e-6) return {{ label: 'Moderate', color: '#f59e0b' }};
+            if (v >= 1e-8) return {{ label: 'Low',      color: '#22c55e' }};
+            return {{ label: 'Trace', color: '#9ca3af' }};
+        }}
+
+        // Expand/collapse the "+N more" per-chemical deposition list inside a clinic popup.
+        function toggleVetChems(el) {{
+            const list = el.parentElement.querySelector('.vp-chemlist');
+            if (!list) return;
+            const show = (list.style.display === 'none' || !list.style.display);
+            list.style.display = show ? 'block' : 'none';
+            const arrow = el.querySelector('.vp-arrow');
+            if (arrow) arrow.textContent = show ? '▴' : '▾';
         }}
 
         function vetPopupHtml(cl) {{
             const dep = soilDepAtPoint(cl.lat, cl.lon);
             let depHtml;
-            if (dep) {{
-                let risk = 'Low', rc = '#22c55e';
-                if (dep.minBand <= 1) {{ risk = 'Elevated'; rc = '#ef4444'; }}
-                else if (dep.minBand === 2) {{ risk = 'Moderate'; rc = '#f59e0b'; }}
-                depHtml = 'Soil deposition here: <strong>' + fmtConc(dep.maxVal, 'm²') + '</strong><br/>'
-                        + 'Level: <strong style="color:' + rc + '">' + risk + '</strong>'
-                        + (dep.chem ? ' <span style="color:#9ca3af">(' + dep.chem.toLowerCase() + ')</span>' : '');
+            if (dep && dep.list.length) {{
+                const top = dep.list[0];
+                const r = depRisk(top.val);
+                depHtml = 'Soil deposition here: <strong>' + fmtConc(top.val, 'm²') + '</strong><br/>'
+                        + 'Level: <strong style="color:' + r.color + '">' + r.label + '</strong>'
+                        + ' <span style="color:#9ca3af">(' + top.chem.toLowerCase() + ')</span>';
+                if (dep.list.length > 1) {{
+                    const extra = dep.list.length - 1;
+                    depHtml += ' <span class="vp-more" onclick="toggleVetChems(this)">+' + extra
+                             + ' more <span class="vp-arrow">▾</span></span>';
+                    // Full per-chemical breakdown with concentrations (hidden until clicked)
+                    let rows = '';
+                    dep.list.forEach(c => {{
+                        const cr = depRisk(c.val);
+                        rows += '<div class="vp-chemrow"><span>' + c.chem.toLowerCase() + '</span>'
+                              + '<span><span style="color:' + cr.color + '">' + fmtConc(c.val, 'm²')
+                              + '</span></span></div>';
+                    }});
+                    depHtml += '<div class="vp-chemlist" style="display:none">' + rows + '</div>';
+                }}
             }} else {{
-                depHtml = '<span style="color:#9ca3af">No modeled soil deposition at this location this hour (outside the deposition footprint).</span>';
+                depHtml = '<span style="color:#9ca3af">No modeled soil deposition reaches here at this hour.</span>';
             }}
             return '<div class="vet-pop">'
                  + '<div class="vp-title">🐾 ' + cl.name + '</div>'
@@ -5771,16 +5872,25 @@ class CalvertCityPlumeEngine:
         // Main animation loop
         let lastTimestamp = null;
         
+        // Reset the frame clock when the tab becomes visible again so we don't take one huge
+        // time-step after being backgrounded.
+        document.addEventListener('visibilitychange', () => {{ if (!document.hidden) lastTimestamp = null; }});
+
         function tick(timestamp) {{
+            // ── Power/heat saver #1: do nothing while the tab is hidden ──
+            // Skip the sim + canvas repaint entirely when backgrounded so the page doesn't peg the
+            // GPU/CPU in a tab nobody is looking at (browsers throttle rAF here, so this is cheap).
+            if (document.hidden) {{ lastTimestamp = timestamp; requestAnimationFrame(tick); return; }}
+
             if (!lastTimestamp) lastTimestamp = timestamp;
             const deltaSec = (timestamp - lastTimestamp) / 1000;
             lastTimestamp = timestamp;
-            
+
             if (isPlaying) {{
                 const hourRate = getSpeedMultiplier();
                 const dtHours = deltaSec * hourRate;
                 playbackTime += dtHours;
-                
+
                 if (playbackTime > 24.0) {{
                     playbackTime = 0.0;
                     particles = [];
@@ -5790,7 +5900,7 @@ class CalvertCityPlumeEngine:
                     liveDepGrid = new Map();
                     liveDepMax = 0;
                 }}
-                
+
                 // Crash-proof: a throw in particle/dep code must NEVER freeze the animation loop.
                 try {{
                     // Particle rework: always spawn+advect (footprint-gated), no HYSPLIT branch
@@ -5802,12 +5912,18 @@ class CalvertCityPlumeEngine:
 
                 updateHUD();
                 try {{ maybeAnimateDep(); }} catch (e) {{ if (!window._depErr) {{ console.error('dep animate error:', e); window._depErr = true; }} }}
+
+                // ── Power/heat saver #2: only repaint the particle canvas WHILE PLAYING ──
+                // When paused the scene is static, so there's nothing to redraw each frame. Every
+                // interaction that changes what's on screen (pan, zoom, layer/date/chemical toggles)
+                // already calls drawParticles() from its own handler, so the canvas still updates on
+                // demand — we just stop repainting 60×/sec at idle. Big CPU/GPU/battery/heat win.
+                try {{ drawParticles(); }} catch (e) {{ if (!window._drawErr) {{ console.error('drawParticles error:', e); window._drawErr = true; }} }}
+                if (lastMouseEvt && tooltip.style.display === 'block') {{
+                    try {{ updateTooltip(lastMouseEvt); }} catch (e) {{}}
+                }}
             }}
 
-            try {{ drawParticles(); }} catch (e) {{ if (!window._drawErr) {{ console.error('drawParticles error:', e); window._drawErr = true; }} }}
-            if (lastMouseEvt && tooltip.style.display === 'block') {{
-                try {{ updateTooltip(lastMouseEvt); }} catch (e) {{}}
-            }}
             requestAnimationFrame(tick);
         }}
 

@@ -1,6 +1,6 @@
 # AI Context — Calvert City Plume Analysis
 
-Last updated: 2026-07-01. Authoritative handoff for any AI working on this project. Read before editing.
+Last updated: 2026-07-02. Authoritative handoff for any AI working on this project. Read before editing.
 
 ## Project
 Environmental-health (SRSP) dashboard for industrial atmospheric dispersion in Calvert City, KY.
@@ -451,6 +451,54 @@ sidebar **LOCATIONS** collapsible (under LAYERS) with a **Veterinary Clinics** t
 (`vet-clinics-toggle`, default on) + collapse arrow (`locations-toggle`/`-body`/`-arrow`). To add more
 landmark types later: extend the LOCATIONS body + add another LayerGroup. Particle density unchanged
 (~1500); file still ~33 MB.
+
+## ✅ 2026-07-02: THREE simulation days + clinic deposition popups (public release build)
+**Multi-date (switchable):** the embed now carries THREE days, chosen so soil deposition demonstrably
+reaches the vet clinics on real weather:
+- **2024-01-08** (DEFAULT / `START_DATE`) — storm with 24 h of *easterly* wind (plume blows WEST) + rain
+  → heavy deposition over the Paducah clinic cluster. Visible footprint covers 11/15 clinics (9 of the
+  Paducah cluster) with the CLEAN ratio-32 footprint (no expansion needed).
+- **2025-02-15** — heavy rain (83 mm) but plume went north; 12/15 via popups.
+- **2025-03-08** — original; SE toward Benton; 15/15 via popups.
+- Date picker is now a **`<select>`** (was `<input type=date>`) populated from
+  `Object.keys(historicalSimulationArchive)` (initDatePicker); switching hot-swaps plumes + deposition.
+- **How days were picked:** trajectory previews (`hyts_std`, needs `bdyfiles/ASCDATA.CFG` in the run
+  dir) show plume direction cheaply; then Open-Meteo archive API (free, no key, via curl — Python
+  urllib TLS is broken on this Mac; DON'T disable TLS verification, the classifier blocks it) scans a
+  year of Paducah hourly wind+precip to rank days by westward transport + rain. Clinics are mostly
+  W/WNW of the source → need EASTERLY winds. Scan/measure scripts in `scratchpad/`.
+- **How to add a day:** set `START_DATE`/`END_DATE` to it, run the full pipeline (auto-downloads HRRR
+  if the `MET_YYYYMMDD.ARL` is absent; `dep_runs/{date}/` is date-namespaced so no stale-cdump bug),
+  then MERGE with existing dates: extract each date's `historicalSimulationArchive` block from its
+  index.html and call `generate_web_visualization({{all dates}})` — or just `--regen-html`, which now
+  preserves EVERY embedded date (it reads all keys, rebuilds facilities per date, embeds all). Both
+  `output/geojson/{date}/` dirs must be on disk. Merge drivers: `scratchpad/merge_dates.py`, `merge3.py`.
+
+**Veterinary-clinic landmarks (already in place, see the 2026-07-01 LOCATIONS entry):** `VET_CLINICS`
+(15, geocoded) render as anchored markers. **Click a clinic → popup** shows name, address, and the REAL
+soil deposition there: `soilDepAtPoint()` queries the combined dep footprints across ALL bands (not the
+drawn/visible subset) at the current frame + display mode → returns a per-chemical value list. The popup
+shows the top chemical + level (`depRisk()`), then a clickable **"+N more ▾"** (`toggleVetChems()`) that
+expands the full per-chemical breakdown with concentrations (`.vp-more`/`.vp-chemlist`/`.vp-chemrow`).
+On 2024-01-08 e.g. Animal Wellness reads vinyl chloride Moderate + 7 more.
+
+**Footprint visibility:** `DEP_VISIBLE_DECADE_RATIO` was tried at 100 to push the drawn footprint toward
+the clinics but that reintroduced the grid "square" (tetrachloroethylene's 2-decade band reaches ~232 km,
+past the ~220 km grid half-span). Kept at **32** (same as air). The right lever is choosing days whose
+HIGH-concentration deposition actually blows over the clinics, not loosening the filter.
+
+**Size:** 3 full days embed at **~46 MB** (was 33 MB/day). Wins (all in `build_deposition_archive` /
+`generate_web_visualization`): dropped `particles` (~3 MB/day) AND the now-dead `deposition_grid`
+(~6.6 MB/day — footprints come from `depositionArchive`; only dead/disabled code read it), compact JSON,
+`_slim_geojson()` (round coords to 3 dp + decimate rings >8 pts by half). `MET_20250309..14.ARL` were
+deleted to free disk; only `MET_20250308/0215/20240108.ARL` remain (re-downloadable).
+
+**✅ Heat/battery fixed (2026-07-02):** the `tick` render loop used to call `drawParticles()` every rAF
+even when paused/backgrounded (pegged GPU/WindowServer on laptops). Now: (1) a `document.hidden` guard
+returns early when the tab isn't visible (also a `visibilitychange` listener nulls `lastTimestamp` so
+there's no time-jump on return); (2) `drawParticles()` + the per-frame tooltip refresh moved INSIDE the
+`if (isPlaying)` block, so at idle the canvas isn't repainted 60×/sec. Safe because every interaction
+(pan/zoom/toggles/date/display-mode/reset) already calls `drawParticles()` from its own handler.
 
 ## ⚠️ OPEN ITEMS (do in the particle-rework pass)
 1. **Further slim the ~33 MB embed** — depositionArchive is still ~27 MB of GeoJSON. Next levers (riskier,
