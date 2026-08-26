@@ -249,7 +249,7 @@ FACILITIES = {
         "schedule": "continuous"
     },
     "Estron Chemicals": {
-        "coords": (37.04510728259582, -88.35514068582937),
+        "coords": (37.04384046629804, -88.35594862550843),
         "color": "#32CD32",
         "tri_id": "42029STRNCHIGHW",
         "csv_match_name": "ESTRON",
@@ -265,7 +265,7 @@ FACILITIES = {
         "schedule": "continuous"
     },
     "ISP Chemicals": {
-        "coords": (37.04956777490956, -88.3610257943388),
+        "coords": (37.04736797, -88.35960388),
         "color": "#00FF7F",
         "tri_id": "42029GFCHMHIGHW",
         "csv_match_name": "ISP CHEMICALS",
