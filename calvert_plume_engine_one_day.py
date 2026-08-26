@@ -295,14 +295,6 @@ FACILITIES = {
         "csv_match_name": "WACKER",
         "mock_fallback": {"stack_lbs": 111346, "fugitive_lbs": 0},
         "schedule": "continuous"
-    },
-    "Carbide Industries": {
-        "coords": (37.05339786418546, -88.34285478599523),
-        "color": "#FFFF00",
-        "tri_id": "42029THCRB3204I",
-        "csv_match_name": "CARBIDE",
-        "mock_fallback": {"stack_lbs": 85000, "fugitive_lbs": 10000},
-        "schedule": "continuous"
     }
 }    # ── To add a new facility, paste a new block above matching this format ──
 
