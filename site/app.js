@@ -28,10 +28,15 @@
             zoomAnimation: false
         }).setView([37.0317, -88.3542], 12);
         
-        // CartoDB Voyager tile layer (detailed streets, rivers, labels — readable under footprints)
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-            subdomains: 'abcd',
+        // Esri Light Gray Canvas (base + labels reference). Keyless: CARTO's raster tiles began serving an
+        // "API KEY REQUIRED" watermark in September 2026. Native tiles stop at zoom 16; Leaflet upscales beyond.
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxNativeZoom: 16,
+            maxZoom: 20
+        }).addTo(map);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+            maxNativeZoom: 16,
             maxZoom: 20
         }).addTo(map);
         
